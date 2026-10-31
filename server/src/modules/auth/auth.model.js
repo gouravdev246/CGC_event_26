@@ -17,7 +17,41 @@ const userSchema = new mongoose.Schema(
     password: {
       type: String,
       required: true,
-    }
+    },
+    subscription: {
+      plan: {
+        type: String,
+        default: "Developer Pro",
+      },
+      status: {
+        type: String,
+        default: "active",
+      },
+      billingCycle: {
+        type: String,
+        default: "monthly",
+      },
+      renewsOn: {
+        type: String,
+        default: "November 30, 2026",
+      },
+      requestLimit: {
+        type: Number,
+        default: 50000,
+      },
+      tokenLimit: {
+        type: Number,
+        default: 2000000,
+      },
+      requestsUsed: {
+        type: Number,
+        default: 142,
+      },
+      tokensUsed: {
+        type: Number,
+        default: 48500,
+      },
+    },
   },
   {
     timestamps: true,
