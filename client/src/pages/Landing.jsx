@@ -1,14 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isTokenValid } from '../routes/AppRoutes';
 import '../styles/landing.css';
 
 export function Landing() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
-  const isAuthenticated = Boolean(localStorage.getItem('rag_auth_token'));
+  const token = localStorage.getItem('rag_auth_token');
+  const isAuthenticated = isTokenValid(token);
 
-  const handleGetStarted = () => navigate(isAuthenticated ? '/dashboard' : '/login');
-  const handleLogin = () => navigate(isAuthenticated ? '/dashboard' : '/login');
+  // If token is invalid or expired, clear it
+  if (token && !isAuthenticated) {
+    localStorage.removeItem('rag_auth_token');
+    localStorage.removeItem('rag_user_email');
+    localStorage.removeItem('rag_user_name');
+  }
+
+  const handleGetStarted = () => navigate('/login');
+  const handleLogin = () => navigate('/login');
 
   return (
     <div className="landing-root">

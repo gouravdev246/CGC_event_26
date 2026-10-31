@@ -11,6 +11,15 @@ export function Button({
   onClick,
   ...props
 }) {
+  const renderIcon = () => {
+    if (!Icon) return null;
+    if (React.isValidElement(Icon)) {
+      return Icon;
+    }
+    const IconComponent = Icon;
+    return <IconComponent size={size === 'sm' ? 14 : 16} className="btn-icon" />;
+  };
+
   return (
     <button
       className={`btn btn-${variant} btn-${size} ${className}`}
@@ -18,9 +27,9 @@ export function Button({
       onClick={onClick}
       {...props}
     >
-      {Icon && iconPosition === 'left' && <Icon size={size === 'sm' ? 14 : 16} className="btn-icon" />}
+      {Icon && iconPosition === 'left' && renderIcon()}
       {children && <span>{children}</span>}
-      {Icon && iconPosition === 'right' && <Icon size={size === 'sm' ? 14 : 16} className="btn-icon" />}
+      {Icon && iconPosition === 'right' && renderIcon()}
     </button>
   );
 }

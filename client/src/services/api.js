@@ -31,6 +31,23 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Intercept 401 Unauthorized responses to clear stale sessions and redirect to login
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('rag_auth_token');
+      localStorage.removeItem('rag_user_email');
+      localStorage.removeItem('rag_user_name');
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/' && currentPath !== '/landing') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 /**
  * Service to connect to backend endpoints.
  */
@@ -200,27 +217,72 @@ export const apiService = {
 
   async getSubscription() {
     try {
-      const response = await apiClient.get('/auth/subscription');
+      const response = await apiClient.get('/subscription/current');
+      return response.data;
+    } catch (_) {
+      try {
+        const fallback = await apiClient.get('/auth/subscription');
+        return fallback.data;
+      } catch (err) {
+        return {
+          success: true,
+          subscription: {
+            plan: 'Free',
+            status: 'active',
+            billingCycle: 'monthly',
+            renewsOn: 'Never (Free Tier)',
+            documentLimit: 2,
+            documentsUsed: 0,
+            requestLimit: 100,
+            requestsUsed: 0
+          }
+        };
+      }
+    }
+  },
+
+  /**
+   * GET /api/subscription/plans
+   */
+  async getSubscriptionPlans() {
+    try {
+      const response = await apiClient.get('/subscription/plans');
       return response.data;
     } catch (err) {
-      return {
-        success: true,
-        subscription: {
-          plan: 'Developer Pro',
-          status: 'active',
-          billingCycle: 'monthly',
-          renewsOn: 'November 30, 2026',
-          requestLimit: 50000,
-          tokenLimit: 2000000,
-          requestsUsed: 142,
-          tokensUsed: 48500
-        }
-      };
+      return { success: false, error: err.message };
     }
   },
 
   async upgradeSubscription(plan) {
     const response = await apiClient.post('/auth/subscription/upgrade', { plan });
     return response.data;
+  },
+
+  /**
+   * POST /api/subscription/switch-free
+   */
+  async switchToFreePlan() {
+    const response = await apiClient.post('/subscription/switch-free');
+    return response.data;
+  },
+
+  /**
+   * POST /api/subscription/portal
+   */
+  async openCustomerPortal() {
+    const response = await apiClient.post('/subscription/portal');
+    return response.data;
+  },
+
+  /**
+   * Legacy upgrade fallback
+   */
+  async upgradeSubscription(plan) {
+    try {
+      const response = await apiClient.post('/auth/subscription/upgrade', { plan });
+      return response.data;
+    } catch (_) {
+      return this.createCheckoutSession(plan);
+    }
   }
 };

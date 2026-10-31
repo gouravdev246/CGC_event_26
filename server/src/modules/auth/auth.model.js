@@ -18,38 +18,64 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    organizationId: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    stripeCustomerId: {
+      type: String,
+      default: null,
+    },
+    stripeSubscriptionId: {
+      type: String,
+      default: null,
+    },
+    stripePriceId: {
+      type: String,
+      default: null,
+    },
     subscription: {
       plan: {
         type: String,
-        default: "Developer Pro",
+        enum: ["Free", "Starter", "Pro", "Enterprise"],
+        default: "Free",
       },
       status: {
         type: String,
-        default: "active",
+        default: "active", // active, past_due, canceled, incomplete, trialing, unpaid
       },
       billingCycle: {
         type: String,
         default: "monthly",
       },
+      currentPeriodStart: {
+        type: Date,
+        default: Date.now,
+      },
+      currentPeriodEnd: {
+        type: Date,
+        default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      },
       renewsOn: {
         type: String,
-        default: "November 30, 2026",
+        default: "Never (Free Tier)",
+      },
+      documentLimit: {
+        type: Number,
+        default: 2, // Free: 2, Starter: 5, Pro: 12, Enterprise: Custom
+      },
+      documentsUsed: {
+        type: Number,
+        default: 0,
       },
       requestLimit: {
         type: Number,
-        default: 50000,
-      },
-      tokenLimit: {
-        type: Number,
-        default: 2000000,
+        default: 100, // Free: 100, Starter: 1000, Pro: 2500, Enterprise: Custom
       },
       requestsUsed: {
         type: Number,
-        default: 142,
-      },
-      tokensUsed: {
-        type: Number,
-        default: 48500,
+        default: 0,
       },
     },
   },
@@ -66,4 +92,3 @@ userSchema.methods.toJSON = function () {
 };
 
 export const User = mongoose.model("User", userSchema);
-

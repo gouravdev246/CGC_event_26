@@ -166,21 +166,31 @@ export function Settings() {
   };
 
   // Handle Subscription Plan Upgrade / Management
-  const handleUpgradePlan = async (tierName) => {
+  const handleUpgradePlan = async (tierKey) => {
     setUpgradeLoading(true);
     setSubscriptionMessage('');
 
     try {
-      const res = await apiService.upgradeSubscription(tierName);
-      if (res?.success && res.subscription) {
-        setSubscription(res.subscription);
-        setSelectedPlan(res.subscription.plan);
-        setShowPlanSwitcher(false);
-        setSubscriptionMessage(`Plan successfully upgraded to ${tierName}.`);
-        setTimeout(() => setSubscriptionMessage(''), 4000);
+      if (tierKey === 'free' || tierKey === 'Free Plan') {
+        const res = await apiService.switchToFreePlan();
+        if (res?.success && res.subscription) {
+          setSubscription(res.subscription);
+          setSelectedPlan(res.subscription.plan);
+          setShowPlanSwitcher(false);
+          setSubscriptionMessage('Switched to Free Plan successfully.');
+          setTimeout(() => setSubscriptionMessage(''), 4000);
+        }
+      } else {
+        // Stripe checkout for paid plans
+        const res = await apiService.createCheckoutSession(tierKey);
+        if (res?.success && res.url) {
+          window.location.href = res.url;
+        } else {
+          setSubscriptionMessage(res?.message || 'Failed to initialize Stripe checkout.');
+        }
       }
     } catch (err) {
-      setSubscriptionMessage(err.response?.data?.message || 'Failed to update subscription.');
+      setSubscriptionMessage(err.response?.data?.message || err.message || 'Failed to update subscription.');
     } finally {
       setUpgradeLoading(false);
     }
@@ -428,7 +438,7 @@ export function Settings() {
                       {(subscription.requestsUsed || 0).toLocaleString()}
                     </span>
                     <span className="settings-usage-limit">
-                      / {(subscription.requestLimit || 0).toLocaleString()} requests
+                      / {(subscription.requestLimit || 100).toLocaleString()} requests
                     </span>
                   </div>
                   <div className="settings-progress-track">
@@ -438,32 +448,36 @@ export function Settings() {
                     />
                   </div>
                   <span className="settings-help-text">
-                    {((subscription.requestLimit || 0) - (subscription.requestsUsed || 0)).toLocaleString()} requests remaining in current billing cycle
+                    {Math.max(0, (subscription.requestLimit || 100) - (subscription.requestsUsed || 0)).toLocaleString()} requests remaining in billing period
                   </span>
                 </div>
 
-                {/* Token Consumption Meter */}
+                {/* Document Upload Quota Meter */}
                 <div className="settings-usage-card">
                   <div className="settings-usage-header">
-                    <span className="settings-usage-title">Token Consumption</span>
-                    <span className="settings-usage-pct">{tokenPct}%</span>
+                    <span className="settings-usage-title">Document Storage</span>
+                    <span className="settings-usage-pct">
+                      {Math.min(100, Math.round(((subscription.documentsUsed || 0) / (subscription.documentLimit || 2)) * 100))}%
+                    </span>
                   </div>
                   <div className="settings-usage-values">
                     <span className="settings-usage-used">
-                      {(subscription.tokensUsed || 0).toLocaleString()}
+                      {(subscription.documentsUsed || 0).toLocaleString()}
                     </span>
                     <span className="settings-usage-limit">
-                      / {(subscription.tokenLimit || 0).toLocaleString()} tokens
+                      / {(subscription.documentLimit || 2).toLocaleString()} documents
                     </span>
                   </div>
                   <div className="settings-progress-track">
                     <div
                       className="settings-progress-bar"
-                      style={{ width: `${Math.max(2, tokenPct)}%` }}
+                      style={{
+                        width: `${Math.max(2, Math.min(100, Math.round(((subscription.documentsUsed || 0) / (subscription.documentLimit || 2)) * 100)))}%`
+                      }}
                     />
                   </div>
                   <span className="settings-help-text">
-                    Calculated across embeddings and semantic LLM synthesis
+                    {Math.max(0, (subscription.documentLimit || 2) - (subscription.documentsUsed || 0))} document upload slots remaining
                   </span>
                 </div>
               </div>
@@ -471,66 +485,86 @@ export function Settings() {
               {/* Interactive Upgrade / Tier Switcher */}
               {showPlanSwitcher && (
                 <div className="settings-tier-selector-modal">
+                  {/* Free Plan */}
+                  <div
+                    className={`settings-tier-card ${subscription.plan.toLowerCase() === 'free' ? 'selected' : ''}`}
+                  >
+                    <span className="settings-tier-title">Free</span>
+                    <span className="settings-tier-price">₹0/mo</span>
+                    <span className="settings-tier-limits">
+                      • 2 documents<br />
+                      • 100 API requests/month<br />
+                      • Standard vector indexing
+                    </span>
+                    <Button
+                      variant={subscription.plan.toLowerCase() === 'free' ? 'secondary' : 'outline'}
+                      size="sm"
+                      disabled={subscription.plan.toLowerCase() === 'free' || upgradeLoading}
+                      onClick={() => handleUpgradePlan('free')}
+                    >
+                      {subscription.plan.toLowerCase() === 'free' ? 'Current Plan' : 'Select Free'}
+                    </Button>
+                  </div>
+
                   {/* Starter Tier */}
                   <div
-                    className={`settings-tier-card ${subscription.plan === 'Starter' ? 'selected' : ''}`}
+                    className={`settings-tier-card ${subscription.plan.toLowerCase() === 'starter' ? 'selected' : ''}`}
                   >
                     <span className="settings-tier-title">Starter</span>
-                    <span className="settings-tier-price">$19/mo</span>
+                    <span className="settings-tier-price">₹499/mo</span>
                     <span className="settings-tier-limits">
-                      • 10,000 queries/month<br />
-                      • 500,000 tokens<br />
-                      • Standard support
+                      • 5 documents<br />
+                      • 1,000 API requests/month<br />
+                      • Priority vector pipeline
                     </span>
                     <Button
-                      variant={subscription.plan === 'Starter' ? 'secondary' : 'outline'}
+                      variant={subscription.plan.toLowerCase() === 'starter' ? 'secondary' : 'primary'}
                       size="sm"
-                      disabled={subscription.plan === 'Starter' || upgradeLoading}
-                      onClick={() => handleUpgradePlan('Starter')}
+                      disabled={subscription.plan.toLowerCase() === 'starter' || upgradeLoading}
+                      onClick={() => handleUpgradePlan('starter')}
                     >
-                      {subscription.plan === 'Starter' ? 'Current Tier' : 'Select Starter'}
+                      {subscription.plan.toLowerCase() === 'starter' ? 'Current Plan' : 'Upgrade with Stripe'}
                     </Button>
                   </div>
 
-                  {/* Developer Pro Tier */}
+                  {/* Pro Tier */}
                   <div
-                    className={`settings-tier-card ${subscription.plan === 'Developer Pro' ? 'selected' : ''}`}
+                    className={`settings-tier-card ${subscription.plan.toLowerCase() === 'pro' ? 'selected' : ''}`}
                   >
-                    <span className="settings-tier-title">Developer Pro</span>
-                    <span className="settings-tier-price">$49/mo</span>
+                    <span className="settings-tier-title">Pro</span>
+                    <span className="settings-tier-price">₹999/mo</span>
                     <span className="settings-tier-limits">
-                      • 50,000 queries/month<br />
-                      • 2,000,000 tokens<br />
-                      • Priority vector index
+                      • 12 documents<br />
+                      • 2,500 API requests/month<br />
+                      • Dedicated vector index
                     </span>
                     <Button
-                      variant={subscription.plan === 'Developer Pro' ? 'secondary' : 'primary'}
+                      variant={subscription.plan.toLowerCase() === 'pro' ? 'secondary' : 'primary'}
                       size="sm"
-                      disabled={subscription.plan === 'Developer Pro' || upgradeLoading}
-                      onClick={() => handleUpgradePlan('Developer Pro')}
+                      disabled={subscription.plan.toLowerCase() === 'pro' || upgradeLoading}
+                      onClick={() => handleUpgradePlan('pro')}
                     >
-                      {subscription.plan === 'Developer Pro' ? 'Current Tier' : 'Select Pro'}
+                      {subscription.plan.toLowerCase() === 'pro' ? 'Current Plan' : 'Upgrade with Stripe'}
                     </Button>
                   </div>
 
-                  {/* Enterprise Scale Tier */}
+                  {/* Enterprise Tier */}
                   <div
-                    className={`settings-tier-card ${subscription.plan === 'Enterprise Scale' ? 'selected' : ''}`}
+                    className={`settings-tier-card ${subscription.plan.toLowerCase() === 'enterprise' ? 'selected' : ''}`}
                   >
-                    <span className="settings-tier-title">Enterprise Scale</span>
-                    <span className="settings-tier-price">$199/mo</span>
+                    <span className="settings-tier-title">Enterprise</span>
+                    <span className="settings-tier-price">Custom</span>
                     <span className="settings-tier-limits">
-                      • 250,000 queries/month<br />
-                      • 10,000,000 tokens<br />
-                      • 99.9% SLA &amp; dedicated support
+                      • Custom documents<br />
+                      • Custom API requests<br />
+                      • Dedicated SLAs &amp; 24/7 support
                     </span>
                     <Button
-                      variant={subscription.plan === 'Enterprise Scale' ? 'secondary' : 'outline'}
+                      variant="outline"
                       size="sm"
-                      disabled={subscription.plan === 'Enterprise Scale' || upgradeLoading}
-                      onClick={() => handleUpgradePlan('Enterprise Scale')}
+                      onClick={() => { window.location.href = '/subscription'; }}
                     >
-                      {subscription.plan === 'Enterprise Scale' ? 'Current Tier' : 'Select Enterprise'}
+                      Contact Us
                     </Button>
                   </div>
                 </div>

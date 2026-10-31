@@ -11,16 +11,34 @@ import Subscription from '../pages/Subscription';
 import Settings from '../pages/Settings';
 
 /**
+ * Check if a JWT token exists and has not expired
+ */
+export function isTokenValid(token) {
+  if (!token || typeof token !== 'string') return false;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    const payload = JSON.parse(atob(parts[1]));
+    if (!payload.exp) return true;
+    return payload.exp * 1000 > Date.now();
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
  * ProtectedRoute Guard:
  * Prevents unauthenticated users from accessing any route without logging in.
- * If no authentication token exists in localStorage, redirects to /login.
+ * If no valid authentication token exists, clears invalid data and redirects to /login.
  */
 export function ProtectedRoute({ children }) {
   const token = localStorage.getItem('rag_auth_token');
   const location = useLocation();
 
-  if (!token) {
-    // User is not authenticated -> redirect to login immediately
+  if (!isTokenValid(token)) {
+    localStorage.removeItem('rag_auth_token');
+    localStorage.removeItem('rag_user_email');
+    localStorage.removeItem('rag_user_name');
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
@@ -29,12 +47,12 @@ export function ProtectedRoute({ children }) {
 
 /**
  * PublicRoute Guard:
- * If user is already authenticated and visits /login, redirect to /dashboard.
+ * If user is already authenticated with a valid token and visits /login, redirect to /dashboard.
  */
 export function PublicRoute({ children }) {
   const token = localStorage.getItem('rag_auth_token');
 
-  if (token) {
+  if (isTokenValid(token)) {
     return <Navigate to="/dashboard" replace />;
   }
 

@@ -47,6 +47,7 @@ export function UserQuery() {
 
     setErrorMsg('');
     setLoading(true);
+    setLimitError(null);
     const startTime = performance.now();
 
     try {

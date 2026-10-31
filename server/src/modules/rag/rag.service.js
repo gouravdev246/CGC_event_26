@@ -54,7 +54,7 @@ export const vectorStore = await PineconeStore.fromExistingIndex(
         pineconeIndex,
         maxConcurrency: 5,
     }
-);
+}
 
 export async function generateEmbeddingStoreDB(userid, filepath) {
     console.log("Generate Starting....");
@@ -129,6 +129,7 @@ export async function generateEmbeddingStoreDB(userid, filepath) {
 }
 
 export async function searchSimilarity(query, k, userid) {
+    if (!vectorStore) return [];
     const filter = { source: userid };
 
     const similaritySearchResults = await vectorStore.similaritySearch(query, k, filter);
