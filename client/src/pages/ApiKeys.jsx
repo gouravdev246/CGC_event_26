@@ -24,8 +24,8 @@ export function ApiKeys() {
   const [regenerating, setRegenerating] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const serverBase = import.meta.env.VITE_API_BASE_URL
-    ? import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '')
+  const serverBase = import.meta.env.API_BASE_URL || "https://raas.bemylove.in/api"
+    ? import.meta.env.API_BASE_URL.replace(/\/api\/?$/, '') || "https://raas.bemylove.in/api"
     : window.location.origin;
 
   useEffect(() => {
@@ -114,7 +114,7 @@ export function ApiKeys() {
 
         <div className="header-right">
           <a
-            href="http://localhost:5000/docs"
+            href="https://raas.bemylove.in/docs"
             target="_blank"
             rel="noopener noreferrer"
             style={{ textDecoration: 'none' }}
