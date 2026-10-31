@@ -18,7 +18,6 @@ import {
   ArrowRight,
   LogIn
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import { apiService } from '../services/api';
