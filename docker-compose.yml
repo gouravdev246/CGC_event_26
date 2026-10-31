@@ -1,0 +1,51 @@
+services:
+  # ==========================================
+  # Backend API & RAG Engine (Express + Node.js)
+  # ==========================================
+  backend:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: knowapi-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./server/.env
+    environment:
+      - PORT=5000
+      - NODE_ENV=production
+    volumes:
+      - backend-uploads:/app/uploads
+    networks:
+      - knowapi-network
+
+  # ==========================================
+  # Frontend Web Interface (React, Vite & Nginx)
+  # ==========================================
+  frontend:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=/api
+    container_name: knowapi-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - knowapi-network
+
+# Persistent storage for uploaded PDF documents
+volumes:
+  backend-uploads:
+    name: knowapi-backend-uploads
+
+# Internal bridge network for frontend to backend reverse proxying
+networks:
+  knowapi-network:
+    name: knowapi-network
+    driver: bridge
