@@ -1,14 +1,9 @@
-import express from "express";
-import cors from "cors";
-import helmet from "helmet";
 import dotenv from "dotenv";
-import mongoose from "mongoose";
-
-import authRoutes from "./src/modules/auth/auth.routes.js";
+import app from "./src/app.js";
+import { connectDB } from "./src/config/db.js";
 
 dotenv.config();
 
-const app = express();
 const PORT = process.env.PORT || 5001;
 
 // Security and utility middlewares

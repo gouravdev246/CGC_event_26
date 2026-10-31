@@ -34,7 +34,6 @@ async function pdfloader(filepath, userid) {
         }
     })
     return finalText;
-
 }
 
 export const embeddings = new CohereEmbeddings({
@@ -58,7 +57,72 @@ export const vectorStore = await PineconeStore.fromExistingIndex(
 
 
 
+export async function generateEmbeddingStoreDB(userid, filepath) {
+    console.log("Generate Starting....");
 
+    // Resolve upload directory path (supports 'uploads' or 'upload' folder)
+    const uploadDir = [
+        path.resolve(import.meta.dirname, "../../../uploads"),
+        path.resolve(import.meta.dirname, "../../../upload"),
+        path.resolve(process.cwd(), "uploads"),
+        path.resolve(process.cwd(), "server/uploads"),
+    ].find((dir) => fs.existsSync(dir)) || path.resolve(import.meta.dirname, "../../../uploads");
+
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    // Determine target files: either the provided filepath or all PDF files in the upload folder
+    let filesToProcess = [];
+
+    if (filepath) {
+        const directPath = path.isAbsolute(filepath) ? filepath : path.resolve(process.cwd(), filepath);
+        const insideUploadPath = path.resolve(uploadDir, filepath);
+
+        if (fs.existsSync(directPath) && fs.statSync(directPath).isDirectory()) {
+            const files = fs.readdirSync(directPath);
+            filesToProcess = files
+                .filter((file) => file.toLowerCase().endsWith(".pdf"))
+                .map((file) => path.join(directPath, file));
+        } else if (fs.existsSync(directPath) && fs.statSync(directPath).isFile()) {
+            filesToProcess.push(directPath);
+        } else if (fs.existsSync(insideUploadPath) && fs.statSync(insideUploadPath).isFile()) {
+            filesToProcess.push(insideUploadPath);
+        } else {
+            throw new Error(`File not found: ${filepath}`);
+        }
+    } else {
+        const files = fs.readdirSync(uploadDir);
+        filesToProcess = files
+            .filter((file) => file.toLowerCase().endsWith(".pdf"))
+            .map((file) => path.join(uploadDir, file));
+    }
+
+    if (filesToProcess.length === 0) {
+        return {
+            status: 404,
+            message: "No PDF files found to process in the upload folder",
+        };
+    }
+
+    const processedFiles = [];
+
+    // Process files one by one and add embeddings to the vector store
+    for (const currentFilePath of filesToProcess) {
+        console.log(`Processing file: ${currentFilePath}`);
+        const documents = await pdfloader(currentFilePath, userid);
+        if (documents && documents.length > 0) {
+            await vectorStore.addDocuments(documents);
+        }
+        processedFiles.push(path.basename(currentFilePath));
+    }
+
+    return {
+        status: 200,
+        message: "Documents Added Successfully",
+        processedFiles,
+    };
+}
 
 
 
