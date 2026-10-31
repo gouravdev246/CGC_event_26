@@ -49,3 +49,8 @@
 - Implemented: Built full-stack usage matrix monitoring infrastructure. Created `UsageLog` MongoDB schema to record real-time query executions, latencies, estimated input/output tokens, sources retrieved, and status codes. Implemented `usage.service.js`, `usage.controller.js`, and `usage.route.js` serving `/api/usage/overview`, `/api/usage/requests`, `/api/usage/tokens`, `/api/usage/latency`, `/api/usage/models`, and `/api/usage/history`. Integrated automatic live telemetry logging into RAG chat execution (`handleChatQuery`), and wired frontend Axios interceptor to transmit `x-user-id`.
 - Used: Mongoose, Express Router, JWT optional authentication, Recharts time-series aggregation, token estimation metrics.
 - Verification: Tested telemetry creation, aggregation, and all HTTP usage endpoints returning 200 OK with live data; verified full production Vite build in `client` with 0 errors.
+
+## 11. Uploaded PDF Retention (Disabled Automatic Deletion)
+- Implemented: Updated `uploadFile` in `fileupload.controller.js` to retain uploaded PDF documents in the `uploads` folder after vector embedding generation, removing the previous automatic `fs.promises.unlink`. Uploaded documents remain persisted on disk matching their MongoDB `File` record metadata.
+- Used: Express controller, Node.js filesystem handling.
+- Verification: Syntax verified with `node --check` and confirmed controller maintains the file on disk.
