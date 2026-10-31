@@ -253,11 +253,6 @@ export const apiService = {
     }
   },
 
-  async upgradeSubscription(plan) {
-    const response = await apiClient.post('/auth/subscription/upgrade', { plan });
-    return response.data;
-  },
-
   /**
    * POST /api/subscription/switch-free
    */

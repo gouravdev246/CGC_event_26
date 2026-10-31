@@ -24,9 +24,8 @@ export function ApiKeys() {
   const [regenerating, setRegenerating] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const serverBase = import.meta.env.API_BASE_URL || "https://raas.bemylove.in/api"
-    ? import.meta.env.API_BASE_URL.replace(/\/api\/?$/, '') || "https://raas.bemylove.in/api"
-    : window.location.origin;
+  const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.API_BASE_URL || 'https://raas.bemylove.in/api';
+  const serverBase = rawApiBase.replace(/\/api\/?$/, '') || 'https://raas.bemylove.in';
 
   useEffect(() => {
     async function fetchKey() {

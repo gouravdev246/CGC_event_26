@@ -84,3 +84,8 @@
 - Implemented: Resolved 502 Bad Gateway and CORS preflight failure caused by PR #4 merge conflicts in `server/index.js`. The file contained duplicate routes, syntax errors, and a call to undefined `startServer()`, causing Node to crash immediately on container start in Dokploy. Restored clean entrypoint in `server/index.js` that connects to MongoDB and starts `app` from `src/app.js` listening on `0.0.0.0:${PORT}`.
 - Used: Express, Node.js server lifecycle, 0.0.0.0 host binding for Docker containers.
 - Verification: Tested `node index.js` boot, verified clean MongoDB connection, and verified `OPTIONS /api/auth/login` preflight returning 200 with `Access-Control-Allow-Origin: https://raas.imgourav.tech`.
+
+## 18. UserQuery Runtime ReferenceError Fix
+- Implemented: Fixed uncaught runtime error (`ReferenceError: setLimitError is not defined`) in `client/src/pages/UserQuery.jsx`. Removed the orphaned `setLimitError(null)` invocation from `handleAsk`, which caused queries executed from the playground to crash. Also cleaned up `ApiKeys.jsx` to safely resolve `serverBase` without throwing undefined `.replace()` errors, and removed duplicate `upgradeSubscription` declaration in `client/src/services/api.js`.
+- Used: React state cleanup, Vite/Rollup build verification, oxlint.
+- Verification: Ran `npm run build` in `client/` generating production bundle with 0 errors, ran `oxlint` confirming 0 lint errors, and confirmed error-free execution flow.

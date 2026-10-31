@@ -12,6 +12,7 @@ export function UserQuery() {
   const [errorMsg, setErrorMsg] = useState('');
   const [userId, setUserId] = useState(localStorage.getItem('rag_user_id') || '');
   const [apiKey, setApiKey] = useState(localStorage.getItem('rag_api_key') || '');
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -47,7 +48,6 @@ export function UserQuery() {
 
     setErrorMsg('');
     setLoading(true);
-    setLimitError(null);
     const startTime = performance.now();
 
     try {
