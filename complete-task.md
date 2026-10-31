@@ -59,3 +59,13 @@
 - Implemented: Created containerized setup for frontend and backend. Built `server/Dockerfile` using lightweight `node:20-alpine` with production dependency optimization, persistent uploads volume, and container healthchecks. Built `client/Dockerfile` using a multi-stage architecture (Node builder -> NGINX Alpine) with custom `nginx.conf` supporting SPA fallback routing, gzip compression, and reverse-proxying of `/api/` and `/docs` to the backend. Configured root `docker-compose.yml` orchestrating both services with bridge networking, port mappings (5173, 3000, 5000), and `.dockerignore` files.
 - Used: Docker, Docker Compose, Nginx Alpine, Node.js 20 Alpine, multi-stage builds.
 - Verification: Validated compose configuration with `docker compose config` (exit code 0, 0 warnings), verified production Vite build in builder stage, and documented usage in `DOCKER.md`.
+
+## 13. Split Deployment Configuration (Dokploy Backend + Vercel Frontend)
+- Implemented: Configured architecture for running the backend on Dokploy (Node.js Docker container on port 5000 with persistent PDF volume `/app/uploads`) and the frontend on Vercel (Vite React SPA with client-side SPA routing via `client/vercel.json`). Provided step-by-step deployment instructions and environment templates in `DEPLOYMENT.md`.
+- Used: Dokploy Application (Dockerfile), Vercel SPA routing (`vercel.json`), Vite environment variable mapping (`VITE_API_BASE_URL`).
+- Verification: Validated `client/vercel.json` rewrites syntax, verified Vite production build in `client`, and created comprehensive guide in `DEPLOYMENT.md`.
+
+## 14. Railpack / Docker BuildKit Fix (.gitkeep Resolution)
+- Implemented: Resolved `lstat /uploads/.gitkeep: no such file or directory` error that occurred during Dokploy Railpack builds. Replaced the un-ignore pattern `!uploads/.gitkeep` with `uploads` in `server/.dockerignore`, created physical `server/uploads/.gitkeep`, and added root `.dockerignore`.
+- Used: Dockerignore optimization, Docker BuildKit / Railpack compatibility.
+- Verification: Confirmed `.gitkeep` presence, verified `.dockerignore` excludes `uploads` without un-ignore copy errors.
