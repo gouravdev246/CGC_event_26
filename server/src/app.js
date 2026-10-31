@@ -11,7 +11,12 @@ import usageRoutes from "./modules/usage/usage.route.js";
 const app = express();
 
 
-app.use(cors());
+app.use(cors(
+  {
+    origin: ["https://raas.imgourav.tech", "http://raas.imgourav.tech" , "http://raas.imgourav.tech/" , "http://localhost:3000"],
+    credentials: true
+  }
+));
 app.use(express.json());
 
 // Interactive API Documentation endpoint
