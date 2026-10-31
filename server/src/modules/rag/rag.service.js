@@ -1,4 +1,5 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config();
 import path from "node:path";
 import fs from "node:fs";
 import { PDFLoader } from "@langchain/community/document_loaders/fs/pdf";
@@ -8,9 +9,7 @@ import { Document } from "@langchain/core/documents";
 import { PineconeStore } from "@langchain/pinecone";
 import { Pinecone as PineconeClient } from "@pinecone-database/pinecone";
 import { CohereEmbeddings } from "@langchain/cohere";
-import { ChatGroq } from "@langchain/groq"
-
-
+import { ChatGroq } from "@langchain/groq";
 
 async function pdfloader(filepath, userid) {
     const loader = new PDFLoader(filepath, {
@@ -20,19 +19,19 @@ async function pdfloader(filepath, userid) {
 
     // 2. Load and parse the PDF content
     const docs = await loader.load();
-    const fulltext = docs.map((doc) => doc.pageContent).join(" ")
+    const fulltext = docs.map((doc) => doc.pageContent).join(" ");
 
-    const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 })
-    const texts = await splitter.splitText(fulltext)
+    const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
+    const texts = await splitter.splitText(fulltext);
     const finalText = texts.map((text, index) => {
         return {
             pageContent: text,
             metadata: {
                 source: `${userid}`,
                 page: index + 1,
-            }
-        }
-    })
+            },
+        };
+    });
     return finalText;
 }
 
@@ -40,7 +39,6 @@ export const embeddings = new CohereEmbeddings({
     model: "embed-english-v3.0", // Natively outputs 1024 dimensions!
     apiKey: process.env.COHERE_API_KEY || "",
 });
-
 
 const pinecone = new PineconeClient({
     apiKey: process.env.PINECONE_API_KEY || "",
@@ -54,8 +52,6 @@ export const vectorStore = await PineconeStore.fromExistingIndex(
         maxConcurrency: 5,
     }
 );
-
-
 
 export async function generateEmbeddingStoreDB(userid, filepath) {
     console.log("Generate Starting....");
@@ -124,8 +120,6 @@ export async function generateEmbeddingStoreDB(userid, filepath) {
     };
 }
 
-
-
 export async function searchSimilarity(query, k, userid) {
     const filter = { source: userid };
 
@@ -133,30 +127,85 @@ export async function searchSimilarity(query, k, userid) {
     return similaritySearchResults;
 }
 
-
-
-
-
-
 export async function improveQuery(query) {
     const llm = new ChatGroq({
         model: "openai/gpt-oss-120b",
         temperature: 0,
         maxTokens: undefined,
         maxRetries: 2,
-
-    })
+    });
     const aiMsg = await llm.invoke([
-    {
-      role: "system",
-      content: "You are a helpful assistant that translates English to French. Translate the user sentence.",
-    },
-    { role: "user", content: query },
-])
+        {
+            role: "system",
+            content: "You are a helpful assistant that translates English to French. Translate the user sentence.",
+        },
+        { role: "user", content: query },
+    ]);
 
+    return aiMsg.content;
+}
 
-return aiMsg.content ;
+/**
+ * Generate a grounded conversational answer using retrieved context chunks.
+ */
+export async function generateRAGAnswer(query, context, history = []) {
+    const systemPrompt = `You are a helpful, professional, and accurate AI assistant for an organization.
+Your task is to answer user questions using ONLY the relevant context retrieved from their uploaded knowledge base.
+Rules:
+1. Ground your answer strictly in the provided context.
+2. If the answer cannot be found in the context, respond politely: "I'm sorry, but I cannot find that information in the provided knowledge base."
+3. Do not make up facts or speculate beyond what is explicitly stated in the context.
+4. Keep the response clear, structured, and easy to read.`;
 
+    const userPrompt = `Context from knowledge base:
+---------------------
+${context || "No context found."}
+---------------------
 
+User Question: ${query}`;
 
+    const formattedHistory = Array.isArray(history)
+        ? history
+              .filter((item) => item && item.role && item.content)
+              .slice(-6)
+        : [];
+
+    const messages = [
+        { role: "system", content: systemPrompt },
+        ...formattedHistory,
+        { role: "user", content: userPrompt },
+    ];
+
+    // Priority 1: Use Blaxel OpenAI-compatible endpoint if configured
+    if (process.env.BL_API_ENDPOINT && process.env.BL_API_KEY) {
+        const response = await fetch(process.env.BL_API_ENDPOINT, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${process.env.BL_API_KEY}`,
+            },
+            body: JSON.stringify({ messages }),
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`LLM API returned error: ${response.status} - ${errText}`);
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || "No response generated.";
+    }
+
+    // Priority 2: Use Groq if configured
+    if (process.env.GROQ_API_KEY) {
+        const llm = new ChatGroq({
+            model: "llama-3.3-70b-versatile",
+            temperature: 0.2,
+            apiKey: process.env.GROQ_API_KEY,
+        });
+        const aiMsg = await llm.invoke(messages);
+        return aiMsg.content;
+    }
+
+    throw new Error("No LLM API configured in environment (BL_API_ENDPOINT/BL_API_KEY or GROQ_API_KEY).");
 }

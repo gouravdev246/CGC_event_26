@@ -3,8 +3,9 @@ import mongoose from "mongoose";
 const fileSchema = new mongoose.Schema(
   {
     userId: {
-      type: String,
-      required: true,
+      type: mongoose.Schema.Types.ObjectId,
+      ref : 'User',
+      required : true
     },
     originalName: {
       type: String,

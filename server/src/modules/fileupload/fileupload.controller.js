@@ -1,6 +1,9 @@
+import fs from "node:fs";
 import { saveFileRecord } from "./fileupload.service.js";
+import { generateEmbeddingStoreDB } from "../rag/rag.service.js";
+import { getOrCreateApiKey } from "../api_generate/api.service.js";
 
-// Handle file upload
+// Handle file upload and generate embeddings
 export const uploadFile = async (req, res) => {
   try {
     if (!req.file) {
@@ -11,28 +14,65 @@ export const uploadFile = async (req, res) => {
     }
 
     const userId = req.user?.id || req.body?.userId || "user";
+    const filePath = req.file.path;
 
-    // Save uploaded file info to database
-    const fileRecord = await saveFileRecord({
-      userId,
-      originalName: req.file.originalname,
-      filename: req.file.filename,
-      path: req.file.path,
-      size: req.file.size,
-      mimeType: req.file.mimetype,
-    });
+    // Generate embeddings for the uploaded file
+    const embeddingResult = await generateEmbeddingStoreDB(userId, filePath);
 
-    return res.status(201).json({
-      success: true,
-      message: "File uploaded successfully",
-      file: fileRecord,
+    // If embedding generation was successful, delete the file from the uploads folder
+    if (embeddingResult.status === 200) {
+      if (fs.existsSync(filePath)) {
+        await fs.promises.unlink(filePath);
+      }
+
+      // Save uploaded file metadata to database
+      const fileRecord = await saveFileRecord({
+        userId,
+        originalName: req.file.originalname,
+        filename: req.file.filename,
+        path: filePath,
+        size: req.file.size,
+        mimeType: req.file.mimetype,
+      });
+
+      // Retrieve or create the user's API key
+      const apiKeyRecord = await getOrCreateApiKey(userId);
+
+      const protocol = req.protocol;
+      const host = req.get("host");
+      const chatEndpointWithKey = `${protocol}://${host}/api/${userId}/${apiKeyRecord.api_key}/chat`;
+      const chatEndpoint = `${protocol}://${host}/api/${userId}/chat`;
+
+      return res.status(200).json({
+        success: true,
+        message: embeddingResult.message || "Documents Added Successfully",
+        apiKey: apiKeyRecord.api_key,
+        apiEndpoint: chatEndpointWithKey,
+        chatEndpoint,
+        file: fileRecord,
+        processedFiles: embeddingResult.processedFiles,
+      });
+    }
+
+    // In case embedding generation returned a non-200 status
+    return res.status(embeddingResult.status || 400).json({
+      success: false,
+      message: embeddingResult.message || "Failed to generate embeddings",
     });
   } catch (error) {
+    // If processing failed, clean up the temporary uploaded file
+    if (req.file?.path && fs.existsSync(req.file.path)) {
+      try {
+        await fs.promises.unlink(req.file.path);
+      } catch (cleanupError) {
+        console.error("Failed to clean up uploaded file:", cleanupError);
+      }
+    }
+
     return res.status(500).json({
       success: false,
-      message: "File upload failed",
+      message: "File processing failed",
       error: error.message,
     });
   }
 };
-
