@@ -1,8 +1,11 @@
 import axios from 'axios';
 import { initialEmptyOverview, emptyTimeSeries } from './mockData';
 
-// API Client pointing to backend environment or localhost:5000
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
+// API Client pointing to backend environment (defaults to deployed server)
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.API_BASE_URL ||
+  'https://raas.bemylove.in/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

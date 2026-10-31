@@ -54,3 +54,23 @@
 - Implemented: Updated `uploadFile` in `fileupload.controller.js` to retain uploaded PDF documents in the `uploads` folder after vector embedding generation, removing the previous automatic `fs.promises.unlink`. Uploaded documents remain persisted on disk matching their MongoDB `File` record metadata.
 - Used: Express controller, Node.js filesystem handling.
 - Verification: Syntax verified with `node --check` and confirmed controller maintains the file on disk.
+
+## 12. Full-Stack Dockerization (Frontend & Backend)
+- Implemented: Created containerized setup for frontend and backend. Built `server/Dockerfile` using lightweight `node:20-alpine` with production dependency optimization, persistent uploads volume, and container healthchecks. Built `client/Dockerfile` using a multi-stage architecture (Node builder -> NGINX Alpine) with custom `nginx.conf` supporting SPA fallback routing, gzip compression, and reverse-proxying of `/api/` and `/docs` to the backend. Configured root `docker-compose.yml` orchestrating both services with bridge networking, port mappings (5173, 3000, 5000), and `.dockerignore` files.
+- Used: Docker, Docker Compose, Nginx Alpine, Node.js 20 Alpine, multi-stage builds.
+- Verification: Validated compose configuration with `docker compose config` (exit code 0, 0 warnings), verified production Vite build in builder stage, and documented usage in `DOCKER.md`.
+
+## 13. Split Deployment Configuration (Dokploy Backend + Vercel Frontend)
+- Implemented: Configured architecture for running the backend on Dokploy (Node.js Docker container on port 5000 with persistent PDF volume `/app/uploads`) and the frontend on Vercel (Vite React SPA with client-side SPA routing via `client/vercel.json`). Provided step-by-step deployment instructions and environment templates in `DEPLOYMENT.md`.
+- Used: Dokploy Application (Dockerfile), Vercel SPA routing (`vercel.json`), Vite environment variable mapping (`VITE_API_BASE_URL`).
+- Verification: Validated `client/vercel.json` rewrites syntax, verified Vite production build in `client`, and created comprehensive guide in `DEPLOYMENT.md`.
+
+## 14. Railpack / Docker BuildKit Fix (.gitkeep Resolution)
+- Implemented: Resolved `lstat /uploads/.gitkeep: no such file or directory` error that occurred during Dokploy Railpack builds. Replaced the un-ignore pattern `!uploads/.gitkeep` with `uploads` in `server/.dockerignore`, created physical `server/uploads/.gitkeep`, and added root `.dockerignore`.
+- Used: Dockerignore optimization, Docker BuildKit / Railpack compatibility.
+- Verification: Confirmed `.gitkeep` presence, verified `.dockerignore` excludes `uploads` without un-ignore copy errors.
+
+## 15. Production API Base URL & Vite Environment Prefix Fix
+- Implemented: Resolved `ERR_CONNECTION_REFUSED` on `http://localhost:5000/api/auth/login` when accessing the Vercel-deployed frontend. Vite by default ignores environment variables that do not start with `VITE_`. Configured `envPrefix: ['VITE_', 'API_']` in `client/vite.config.js`, updated `client/src/services/api.js` to default to `https://raas.bemylove.in/api`, and updated `client/.env` to include both `VITE_API_BASE_URL` and `API_BASE_URL`.
+- Used: Vite environment configuration (`envPrefix`), Axios API client base URL fallback.
+- Verification: Tested `npm run build` in `client/` and verified production bundle assets contain `https://raas.bemylove.in/api` instead of `localhost:5000`. Confirmed live backend at `https://raas.bemylove.in/api/health` returns 200 OK.

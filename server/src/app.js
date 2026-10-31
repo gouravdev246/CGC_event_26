@@ -25,6 +25,12 @@ app.post(
   handleStripeWebhook
 );
 
+app.use(cors(
+  {
+    origin: ["https://raas.imgourav.tech", "http://raas.imgourav.tech" , "http://raas.imgourav.tech/" , "http://localhost:3000"],
+    credentials: true
+  }
+));
 app.use(express.json());
 
 // Interactive API Documentation endpoint
