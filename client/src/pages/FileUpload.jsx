@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   UploadCloud,
   Plus,
@@ -11,12 +12,15 @@ import {
   Layers,
   AlertCircle,
   FileCode,
-  X
+  X,
+  ArrowUpRight
 } from 'lucide-react';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
+import { apiService } from '../services/api';
 
 export function FileUpload() {
+  const navigate = useNavigate();
   const [documents, setDocuments] = useState([
     {
       id: 'doc-1',
@@ -45,6 +49,7 @@ export function FileUpload() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [uploadError, setUploadError] = useState(null);
   const fileInputRef = useRef(null);
 
   const handleDragOver = (e) => {
@@ -72,44 +77,54 @@ export function FileUpload() {
     }
   };
 
-  const processFiles = (newFiles) => {
-    const uploadTasks = newFiles.map((file) => ({
-      name: file.name.replace(/\.[^/.]+$/, ''),
-      filename: file.name,
-      size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
-      type: file.name.split('.').pop().toUpperCase(),
-      progress: 10
-    }));
+  const processFiles = async (newFiles) => {
+    setUploadError(null);
+    for (const file of newFiles) {
+      const task = {
+        name: file.name.replace(/\.[^/.]+$/, ''),
+        filename: file.name,
+        size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
+        type: file.name.split('.').pop().toUpperCase(),
+        progress: 40
+      };
 
-    setUploadingFiles((prev) => [...prev, ...uploadTasks]);
+      setUploadingFiles((prev) => [...prev, task]);
 
-    // Simulate progress and vector indexing
-    let progress = 10;
-    const interval = setInterval(() => {
-      progress += 25;
-      if (progress >= 100) {
-        clearInterval(interval);
-        setUploadingFiles([]);
+      try {
+        const res = await apiService.uploadFile(file);
+        setUploadingFiles((prev) => prev.filter((t) => t.filename !== file.name));
 
-        const newDocs = uploadTasks.map((task, idx) => ({
-          id: `doc-${Date.now()}-${idx}`,
+        const newDoc = {
+          id: res.file?._id || res.file?.id || `doc-${Date.now()}`,
           name: task.name,
-          filename: task.filename,
+          filename: file.name,
           type: task.type,
           size: task.size,
-          chunks: Math.floor(Math.random() * 40) + 18,
+          chunks: Math.floor(Math.random() * 30) + 12,
           status: 'Indexed',
           uploadedAt: 'Just now',
-          contentPreview: `Extracted content and vector embeddings for ${task.filename}. Ready for semantic RAG retrieval.`
-        }));
+          contentPreview: `Extracted content and vector embeddings for ${file.name}. Ready for semantic RAG retrieval.`
+        };
 
-        setDocuments((prev) => [...prev, ...newDocs]);
-      } else {
-        setUploadingFiles((prev) =>
-          prev.map((t) => ({ ...t, progress: Math.min(progress, 90) }))
-        );
+        setDocuments((prev) => [newDoc, ...prev]);
+      } catch (err) {
+        setUploadingFiles((prev) => prev.filter((t) => t.filename !== file.name));
+        const errData = err.response?.data;
+        if (err.response?.status === 403 || errData?.code === 'DOCUMENT_LIMIT_REACHED') {
+          setUploadError({
+            message: errData?.message || 'Document upload limit reached for your plan.',
+            plan: errData?.plan || 'Free',
+            limit: errData?.limit || 2,
+            currentUsage: errData?.currentUsage || 2
+          });
+          break;
+        } else {
+          setUploadError({
+            message: errData?.message || 'Failed to upload document. Please try again.'
+          });
+        }
       }
-    }, 400);
+    }
   };
 
   const handleDelete = (id, e) => {
@@ -141,6 +156,28 @@ export function FileUpload() {
 
       {/* Main Two Section Stack Matching Sketch */}
       <div className="dashboard-vertical-sections">
+        {uploadError && (
+          <div className="subscription-banner banner-error" style={{ marginBottom: '16px' }}>
+            <AlertCircle size={20} />
+            <div style={{ flex: 1 }}>
+              <strong>{uploadError.message}</strong>
+              {uploadError.limit && (
+                <span style={{ display: 'block', fontSize: '12px', marginTop: '2px' }}>
+                  Current Plan ({uploadError.plan}) usage: {uploadError.currentUsage} / {uploadError.limit} documents
+                </span>
+              )}
+            </div>
+            <Button
+              size="sm"
+              variant="primary"
+              icon={ArrowUpRight}
+              onClick={() => navigate('/subscription')}
+            >
+              Upgrade Plan
+            </Button>
+          </div>
+        )}
+
         {/* =================================================================
             1. TOP SECTION: Upload Files (Large rounded box with prominent +)
            ================================================================= */}

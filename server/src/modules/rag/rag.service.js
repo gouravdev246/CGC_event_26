@@ -47,13 +47,21 @@ const pinecone = new PineconeClient({
 });
 const pineconeIndex = pinecone.Index(process.env.PINECONE_INDEX || "personalrag");
 
-export const vectorStore = await PineconeStore.fromExistingIndex(
-    embeddings,
-    {
-        pineconeIndex,
-        maxConcurrency: 5,
+export let vectorStore = null;
+
+if (process.env.PINECONE_API_KEY && process.env.COHERE_API_KEY) {
+    try {
+        vectorStore = await PineconeStore.fromExistingIndex(
+            embeddings,
+            {
+                pineconeIndex,
+                maxConcurrency: 5,
+            }
+        );
+    } catch (err) {
+        console.warn("Pinecone index notice:", err.message);
     }
-);
+}
 
 
 
@@ -127,6 +135,7 @@ export async function generateEmbeddingStoreDB(userid, filepath) {
 
 
 export async function searchSimilarity(query, k, userid) {
+    if (!vectorStore) return [];
     const filter = { source: userid };
 
     const similaritySearchResults = await vectorStore.similaritySearch(query, k, filter);

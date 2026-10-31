@@ -24,6 +24,23 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Intercept 401 Unauthorized responses to clear stale sessions and redirect to login
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('rag_auth_token');
+      localStorage.removeItem('rag_user_email');
+      localStorage.removeItem('rag_user_name');
+      const currentPath = window.location.pathname;
+      if (currentPath !== '/login' && currentPath !== '/' && currentPath !== '/landing') {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 /**
  * Service to consume genuine backend telemetry endpoints.
  * Returns clean empty data structures when no data is recorded yet (no fake bloated numbers).
@@ -150,34 +167,127 @@ export const apiService = {
   },
 
   /**
-   * GET /api/auth/subscription
+   * File Upload & Management endpoints
+   */
+  async uploadFile(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = localStorage.getItem('rag_auth_token');
+    const response = await axios.post(`${API_BASE_URL}/files/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    });
+    return response.data;
+  },
+
+  async getFiles() {
+    try {
+      const response = await apiClient.get('/files');
+      return response.data;
+    } catch (err) {
+      return { success: false, files: [] };
+    }
+  },
+
+  async deleteFile(fileId) {
+    const response = await apiClient.delete(`/files/${fileId}`);
+    return response.data;
+  },
+
+  /**
+   * RAG Query endpoint
+   */
+  async queryRag(queryText, topK = 3) {
+    const response = await apiClient.post('/rag/query', { query: queryText, topK });
+    return response.data;
+  },
+
+  /**
+   * GET /api/subscription/current (with fallback)
    */
   async getSubscription() {
     try {
-      const response = await apiClient.get('/auth/subscription');
+      const response = await apiClient.get('/subscription/current');
       return response.data;
-    } catch (err) {
-      return {
-        success: true,
-        subscription: {
-          plan: 'Developer Pro',
-          status: 'active',
-          billingCycle: 'monthly',
-          renewsOn: 'November 30, 2026',
-          requestLimit: 50000,
-          tokenLimit: 2000000,
-          requestsUsed: 142,
-          tokensUsed: 48500
-        }
-      };
+    } catch (_) {
+      try {
+        const fallback = await apiClient.get('/auth/subscription');
+        return fallback.data;
+      } catch (err) {
+        return {
+          success: true,
+          subscription: {
+            plan: 'Free',
+            status: 'active',
+            billingCycle: 'monthly',
+            renewsOn: 'Never (Free Tier)',
+            documentLimit: 2,
+            documentsUsed: 0,
+            requestLimit: 100,
+            requestsUsed: 0
+          }
+        };
+      }
     }
   },
 
   /**
-   * POST /api/auth/subscription/upgrade
+   * GET /api/subscription/plans
+   */
+  async getSubscriptionPlans() {
+    try {
+      const response = await apiClient.get('/subscription/plans');
+      return response.data;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  },
+
+  /**
+   * POST /api/subscription/create-checkout-session
+   */
+  async createCheckoutSession(planId) {
+    const response = await apiClient.post('/subscription/create-checkout-session', { planId });
+    return response.data;
+  },
+
+  /**
+   * GET /api/subscription/verify-session?session_id=...
+   */
+  async verifyCheckoutSession(sessionId) {
+    const response = await apiClient.get('/subscription/verify-session', {
+      params: { session_id: sessionId }
+    });
+    return response.data;
+  },
+
+  /**
+   * POST /api/subscription/switch-free
+   */
+  async switchToFreePlan() {
+    const response = await apiClient.post('/subscription/switch-free');
+    return response.data;
+  },
+
+  /**
+   * POST /api/subscription/portal
+   */
+  async openCustomerPortal() {
+    const response = await apiClient.post('/subscription/portal');
+    return response.data;
+  },
+
+  /**
+   * Legacy upgrade fallback
    */
   async upgradeSubscription(plan) {
-    const response = await apiClient.post('/auth/subscription/upgrade', { plan });
-    return response.data;
+    try {
+      const response = await apiClient.post('/auth/subscription/upgrade', { plan });
+      return response.data;
+    } catch (_) {
+      return this.createCheckoutSession(plan);
+    }
   }
 };

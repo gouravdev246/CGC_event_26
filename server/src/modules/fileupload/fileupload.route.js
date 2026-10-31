@@ -1,20 +1,24 @@
 import { Router } from "express";
-import { uploadFile } from "./fileupload.controller.js";
+import { uploadFile, listFiles, deleteFile } from "./fileupload.controller.js";
 import { upload } from "./fileupload.service.js";
 import { verifyToken } from "../auth/auth.middleware.js";
+import { enforceDocumentLimit } from "../subscription/usage.middleware.js";
 
 const router = Router();
 
-// Middleware to use auth token if present
-const optionalAuth = (req, res, next) => {
-  if (req.headers.authorization) {
-    return verifyToken(req, res, next);
-  }
-  next();
-};
+// Route to list files uploaded by user
+router.get("/", verifyToken, listFiles);
 
-// Route to upload a file (stored in server/uploads as user_id_filename.pdf)
-router.post("/upload", optionalAuth, upload.single("file"), uploadFile);
+// Route to upload a file (checks document limit before and after upload)
+router.post(
+  "/upload",
+  verifyToken,
+  enforceDocumentLimit,
+  upload.single("file"),
+  uploadFile
+);
+
+// Route to delete file
+router.delete("/:id", verifyToken, deleteFile);
 
 export default router;
-

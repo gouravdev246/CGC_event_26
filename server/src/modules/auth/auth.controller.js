@@ -6,7 +6,7 @@ import { User } from "./auth.model.js";
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_jwt_key_rag_service_2026_dev";
 
 // In-memory user store fallback when MongoDB is not currently running locally
-const inMemoryUsers = new Map();
+export const inMemoryUsers = new Map();
 
 // Helper to generate JWT token with user identity
 const generateToken = (user) => {
