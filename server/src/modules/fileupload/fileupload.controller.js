@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { File } from "./fileupload.module.js";
 import { saveFileRecord } from "./fileupload.service.js";
 import { generateEmbeddingStoreDB } from "../rag/rag.service.js";
 import { getOrCreateApiKey } from "../api_generate/api.service.js";
@@ -70,5 +71,35 @@ export const uploadFile = async (req, res) => {
       message: "File processing failed",
       error: error.message,
     });
+  }
+};
+
+export const listFiles = async (req, res) => {
+  try {
+    const userId = req.user?.id || req.user?._id;
+    const files = await File.find(userId ? { userId } : {}).sort({ createdAt: -1 });
+    return res.status(200).json({ success: true, files });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const deleteFile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id || req.user?._id;
+    const file = await File.findOne({ _id: id, ...(userId ? { userId } : {}) });
+    if (!file) {
+      return res.status(404).json({ success: false, message: "File not found" });
+    }
+    if (file.path && fs.existsSync(file.path)) {
+      try {
+        await fs.promises.unlink(file.path);
+      } catch (_) {}
+    }
+    await File.deleteOne({ _id: id });
+    return res.status(200).json({ success: true, message: "File deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

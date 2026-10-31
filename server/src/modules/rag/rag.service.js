@@ -54,7 +54,7 @@ export const vectorStore = await PineconeStore.fromExistingIndex(
         pineconeIndex,
         maxConcurrency: 5,
     }
-}
+);
 
 export async function generateEmbeddingStoreDB(userid, filepath) {
     console.log("Generate Starting....");

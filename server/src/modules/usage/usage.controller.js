@@ -79,6 +79,7 @@ export const getLatencyTimeSeries = async (req, res) => {
   }
 };
 
+export const getModelWiseUsage = async (req, res) => getModelUsage(req, res);
 export const getModelUsage = async (req, res) => {
   try {
     const userId = resolveUserId(req);
