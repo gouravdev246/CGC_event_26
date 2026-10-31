@@ -17,14 +17,17 @@ export const uploadFile = async (req, res) => {
     const filePath = req.file.path;
 
     // Generate embeddings for the uploaded file
+    console.log("Generate Embediings 1")
     const embeddingResult = await generateEmbeddingStoreDB(userId, filePath);
-
+    console.log("Generate Embediings 1")
+    
     // If embedding generation was successful, delete the file from the uploads folder
     if (embeddingResult.status === 200) {
       if (fs.existsSync(filePath)) {
         await fs.promises.unlink(filePath);
       }
-
+      console.log("Generate Embediings 1")
+      
       // Save uploaded file metadata to database
       const fileRecord = await saveFileRecord({
         userId,
@@ -34,7 +37,8 @@ export const uploadFile = async (req, res) => {
         size: req.file.size,
         mimeType: req.file.mimetype,
       });
-
+      
+      console.log("Generate Embediings 1")
       // Retrieve or create the user's API key
       const apiKeyRecord = await getOrCreateApiKey(userId);
 

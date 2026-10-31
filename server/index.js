@@ -4,46 +4,21 @@ import { connectDB } from "./src/config/db.js";
 
 dotenv.config();
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5000;
 
-// Security and utility middlewares
-app.use(helmet());
-app.use(cors({
-  origin: ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000"],
-  credentials: true
-}));
-app.use(express.json());
+// Connect to MongoDB and start server
+const startServer = async () => {
+  try {
+    await connectDB();
+  } catch (err) {
+    console.error("Database connection failed:", err.message);
+  }
 
-// Routes
-app.use("/api/auth", authRoutes);
-
-// Health check endpoint
-app.get("/api/health", (req, res) => {
-  res.json({
-    success: true,
-    message: "KnowAPI server is running",
-    mongoStatus: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
-    port: PORT
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
   });
-});
+};
 
-// Start Express server immediately
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
-
-// Connect to MongoDB if MONGO_URI is configured
-const mongoUri = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/rag_db";
-if (mongoUri) {
-  mongoose
-    .connect(mongoUri)
-    .then(() => {
-      console.log("Connected to MongoDB successfully");
-    })
-    .catch((err) => {
-      console.warn("MongoDB connection notice:", err.message);
-      console.log("Server active and accepting auth requests on port", PORT);
-    });
-}
+startServer();
 
 export default app;

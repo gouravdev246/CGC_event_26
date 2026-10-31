@@ -1,21 +1,16 @@
 import express from "express";
 import cors from "cors";
-import helmet from "helmet";
 import path from "node:path";
 
 import authRoutes from "./modules/auth/auth.routes.js";
 import fileRoutes from "./modules/fileupload/fileupload.route.js";
 import apiRoutes from "./modules/api_generate/api.route.js";
 import ragRoutes from "./modules/rag/rag.route.js";
+import usageRoutes from "./modules/usage/usage.route.js";
 
 const app = express();
 
-// Middlewares
-app.use(
-  helmet({
-    contentSecurityPolicy: false, // Allows inline documentation styles and copy scripts
-  })
-);
+
 app.use(cors());
 app.use(express.json());
 
@@ -29,6 +24,7 @@ app.get(["/docs", "/api-docs"], (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/keys", apiRoutes);
+app.use("/api/usage", usageRoutes);
 app.use("/api", ragRoutes);
 
 // Health check

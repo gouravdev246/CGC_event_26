@@ -1,23 +1,27 @@
 import axios from 'axios';
 import { initialEmptyOverview, emptyTimeSeries } from './mockData';
 
-// API Client pointing to backend environment or localhost:5001
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
+// API Client pointing to backend environment or localhost:5000
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 5000,
+  timeout: 60000, // 60 seconds to allow for PDF parsing and embedding generation
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-// Attach authenticated JWT token
+// Attach authenticated JWT token and user ID to outgoing requests
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('rag_auth_token');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    const userId = localStorage.getItem('rag_user_id');
+    if (userId) {
+      config.headers['x-user-id'] = userId;
     }
     return config;
   },
@@ -25,13 +29,91 @@ apiClient.interceptors.request.use(
 );
 
 /**
- * Service to consume genuine backend telemetry endpoints.
- * Returns clean empty data structures when no data is recorded yet (no fake bloated numbers).
+ * Service to connect to backend endpoints.
  */
 export const apiService = {
-  /**
-   * GET /api/usage/overview
-   */
+  // ==========================================
+  // AUTHENTICATION
+  // ==========================================
+  async register(name, email, password) {
+    const response = await apiClient.post('/auth/register', { name, email, password });
+    return response.data;
+  },
+
+  async login(email, password) {
+    const response = await apiClient.post('/auth/login', { email, password });
+    return response.data;
+  },
+
+  async getMe() {
+    try {
+      const response = await apiClient.get('/auth/me');
+      return response.data;
+    } catch (err) {
+      const email = localStorage.getItem('rag_user_email') || '';
+      const name = localStorage.getItem('rag_user_name') || '';
+      const id = localStorage.getItem('rag_user_id') || '';
+      return { success: false, user: { id, email, name } };
+    }
+  },
+
+  // ==========================================
+  // DOCUMENT INGESTION (RAG UPLOAD)
+  // ==========================================
+  async uploadFile(formData, onProgress) {
+    const response = await apiClient.post('/files/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      onUploadProgress: (progressEvent) => {
+        if (onProgress && progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          onProgress(percent);
+        }
+      },
+    });
+    return response.data;
+  },
+
+  // ==========================================
+  // API KEY MANAGEMENT
+  // ==========================================
+  async getCurrentApiKey() {
+    const response = await apiClient.get('/keys/current');
+    return response.data;
+  },
+
+  async generateApiKey() {
+    const response = await apiClient.post('/keys/generate');
+    return response.data;
+  },
+
+  // ==========================================
+  // RAG CHATBOT QUERY SERVICE
+  // ==========================================
+  async queryRAG({ userId, apiKey, message, history = [], k = 4 }) {
+    if (apiKey) {
+      // Direct endpoint with API key in URL path: /api/:userid/:apikey/chat
+      const response = await apiClient.post(`/${userId}/${apiKey}/chat`, {
+        message,
+        history,
+        k,
+      });
+      return response.data;
+    }
+
+    // Standard endpoint with API key in header
+    const response = await apiClient.post(
+      `/${userId}/chat`,
+      { message, history, k },
+      { headers: { 'x-api-key': apiKey } }
+    );
+    return response.data;
+  },
+
+  // ==========================================
+  // TELEMETRY & DASHBOARD
+  // ==========================================
   async getDashboardOverview(params = {}) {
     try {
       const response = await apiClient.get('/usage/overview', { params });
@@ -45,9 +127,6 @@ export const apiService = {
     }
   },
 
-  /**
-   * GET /api/usage/requests
-   */
   async getRequestsTimeSeries(params = {}) {
     try {
       const response = await apiClient.get('/usage/requests', { params });
@@ -57,9 +136,6 @@ export const apiService = {
     }
   },
 
-  /**
-   * GET /api/usage/tokens
-   */
   async getTokensTimeSeries(params = {}) {
     try {
       const response = await apiClient.get('/usage/tokens', { params });
@@ -69,9 +145,6 @@ export const apiService = {
     }
   },
 
-  /**
-   * GET /api/usage/latency
-   */
   async getLatencyTimeSeries(params = {}) {
     try {
       const response = await apiClient.get('/usage/latency', { params });
@@ -81,9 +154,6 @@ export const apiService = {
     }
   },
 
-  /**
-   * GET /api/usage/models
-   */
   async getModelWiseUsage(params = {}) {
     try {
       const response = await apiClient.get('/usage/models', { params });
@@ -93,9 +163,6 @@ export const apiService = {
     }
   },
 
-  /**
-   * GET /api/usage/rag-performance
-   */
   async getRagPerformance(params = {}) {
     try {
       const response = await apiClient.get('/usage/rag-performance', { params });
@@ -105,15 +172,11 @@ export const apiService = {
     }
   },
 
-  /**
-   * GET /api/usage/history
-   */
   async getRequestHistory(params = {}) {
     try {
       const response = await apiClient.get('/usage/history', { params });
       return { data: response.data || [], source: 'backend' };
     } catch (err) {
-      // Check if user has executed real queries locally, or return empty list
       const savedLocalHistory = localStorage.getItem('rag_recent_queries');
       if (savedLocalHistory) {
         try {
@@ -124,23 +187,6 @@ export const apiService = {
     }
   },
 
-  /**
-   * GET /api/auth/me
-   */
-  async getMe() {
-    try {
-      const response = await apiClient.get('/auth/me');
-      return response.data;
-    } catch (err) {
-      const email = localStorage.getItem('rag_user_email') || '';
-      const name = localStorage.getItem('rag_user_name') || '';
-      return { success: false, user: { email, name } };
-    }
-  },
-
-  /**
-   * POST /api/auth/change-password
-   */
   async changePassword(currentPassword, newPassword) {
     const response = await apiClient.post('/auth/change-password', {
       currentPassword,
@@ -149,9 +195,6 @@ export const apiService = {
     return response.data;
   },
 
-  /**
-   * GET /api/auth/subscription
-   */
   async getSubscription() {
     try {
       const response = await apiClient.get('/auth/subscription');
@@ -173,9 +216,6 @@ export const apiService = {
     }
   },
 
-  /**
-   * POST /api/auth/subscription/upgrade
-   */
   async upgradeSubscription(plan) {
     const response = await apiClient.post('/auth/subscription/upgrade', { plan });
     return response.data;

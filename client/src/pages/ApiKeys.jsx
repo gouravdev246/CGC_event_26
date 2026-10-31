@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Key,
   Copy,
@@ -9,30 +9,94 @@ import {
   Code,
   ExternalLink,
   Lock,
-  Plus
+  Globe
 } from 'lucide-react';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
+import { apiService } from '../services/api';
 
 export function ApiKeys() {
-  const [apiKey, setApiKey] = useState('rag_live_9f83a4c0172e90b84d2891f7a8');
-  const [copied, setCopied] = useState(false);
+  const [apiKey, setApiKey] = useState(localStorage.getItem('rag_api_key') || '');
+  const [userId, setUserId] = useState(localStorage.getItem('rag_user_id') || '');
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [copiedCurl, setCopiedCurl] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const handleCopy = () => {
+  const serverBase = import.meta.env.VITE_API_BASE_URL
+    ? import.meta.env.VITE_API_BASE_URL.replace(/\/api\/?$/, '')
+    : window.location.origin;
+
+  useEffect(() => {
+    async function fetchKey() {
+      try {
+        setLoading(true);
+        // Ensure user id is available
+        const meRes = await apiService.getMe();
+        if (meRes?.user?.id || meRes?.user?._id) {
+          const currentUid = meRes.user.id || meRes.user._id;
+          setUserId(currentUid);
+          localStorage.setItem('rag_user_id', currentUid);
+        }
+
+        const res = await apiService.getCurrentApiKey();
+        if (res && res.apiKey) {
+          setApiKey(res.apiKey);
+          localStorage.setItem('rag_api_key', res.apiKey);
+        }
+      } catch (err) {
+        console.error('Failed to load API key:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchKey();
+  }, []);
+
+  const handleCopyKey = () => {
     navigator.clipboard.writeText(apiKey);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const handleRegenerate = () => {
-    setRegenerating(true);
-    setTimeout(() => {
-      const newKey = `rag_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-      setApiKey(newKey);
-      setRegenerating(false);
-    }, 600);
+  const handleCopyUrl = (url) => {
+    navigator.clipboard.writeText(url);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2000);
   };
+
+  const handleCopyCurl = (text) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCurl(true);
+    setTimeout(() => setCopiedCurl(false), 2000);
+  };
+
+  const handleRegenerate = async () => {
+    try {
+      setRegenerating(true);
+      const res = await apiService.generateApiKey();
+      if (res && res.apiKey) {
+        setApiKey(res.apiKey);
+        localStorage.setItem('rag_api_key', res.apiKey);
+      }
+    } catch (err) {
+      console.error('Failed to generate key:', err);
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const directEndpointUrl = `${serverBase}/api/${userId || '{userid}'}/${apiKey || '{apikey}'}/chat`;
+  const headerEndpointUrl = `${serverBase}/api/${userId || '{userid}'}/chat`;
+
+  const curlSnippet = `curl -X POST "${directEndpointUrl}" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "message": "What is the admission procedure?",
+    "k": 4
+  }'`;
 
   return (
     <div className="dashboard-page-container api-keys-page">
@@ -45,14 +109,21 @@ export function ApiKeys() {
             <span className="breadcrumb-active">API Keys</span>
           </div>
           <h1 className="header-page-title">Connect Your Applications.</h1>
-          <p className="header-page-subtitle">Secure API access to your knowledge base.</p>
+          <p className="header-page-subtitle">Instant RAG API endpoints ready for custom chatbots and external platforms.</p>
         </div>
 
         <div className="header-right">
-          <div className="live-pill">
-            <span className="live-dot" />
-            <span>SSL / TLS Encrypted</span>
-          </div>
+          <a
+            href="http://localhost:5000/docs"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ textDecoration: 'none' }}
+          >
+            <div className="live-pill" style={{ cursor: 'pointer' }}>
+              <ExternalLink size={14} className="text-indigo" />
+              <span>Interactive API Docs</span>
+            </div>
+          </a>
         </div>
       </header>
 
@@ -65,32 +136,35 @@ export function ApiKeys() {
                 <Key size={20} className="section-icon text-indigo" />
               </div>
               <div>
-                <h2 className="section-heading">Connect Your Applications.</h2>
+                <h2 className="section-heading">Your Active Secret API Key</h2>
                 <p className="section-subtext">
-                  Secure API access to your knowledge base.
+                  Authenticate your custom chatbot against your vector-indexed documents.
                 </p>
               </div>
             </div>
 
             <Badge variant="success" size="md" dot>
-              Active Production Key
+              {loading ? 'Fetching Key...' : 'Active Production Key'}
             </Badge>
           </div>
 
           <div className="api-key-box">
             <div className="api-key-value-wrap">
-              <span className="api-key-prefix">Bearer</span>
-              <span className="api-key-code">{apiKey}</span>
+              <span className="api-key-prefix">Key</span>
+              <span className="api-key-code">
+                {loading ? 'Loading key...' : apiKey || 'Click Generate to create a key'}
+              </span>
             </div>
 
             <div className="api-key-actions">
               <Button
                 variant="outline"
                 size="sm"
-                icon={copied ? Check : Copy}
-                onClick={handleCopy}
+                icon={copiedKey ? Check : Copy}
+                onClick={handleCopyKey}
+                disabled={!apiKey}
               >
-                {copied ? 'Copied' : 'Copy Key'}
+                {copiedKey ? 'Copied' : 'Copy Key'}
               </Button>
 
               <Button
@@ -99,8 +173,9 @@ export function ApiKeys() {
                 icon={RefreshCw}
                 onClick={handleRegenerate}
                 className={regenerating ? 'rotating' : ''}
+                disabled={regenerating}
               >
-                {regenerating ? 'Generating...' : 'Generate API Key'}
+                {regenerating ? 'Generating...' : apiKey ? 'Rotate Key' : 'Generate API Key'}
               </Button>
             </div>
           </div>
@@ -108,11 +183,11 @@ export function ApiKeys() {
           <div className="key-scopes-row">
             <div className="scope-tag">
               <ShieldCheck size={14} className="text-emerald" />
-              <span>Scope: rag.query (Read)</span>
+              <span>Scope: rag.chat (Semantic Search + LLM Answer)</span>
             </div>
             <div className="scope-tag">
               <ShieldCheck size={14} className="text-emerald" />
-              <span>Scope: rag.ingest (Write)</span>
+              <span>Tenant: Isolated to user {userId?.slice(-6) || 'active'}</span>
             </div>
             <div className="scope-tag">
               <Lock size={14} className="text-indigo" />
@@ -121,7 +196,69 @@ export function ApiKeys() {
           </div>
         </section>
 
-        {/* Bottom Section: Integration Example */}
+        {/* Middle Section: Live RAG Endpoints */}
+        <section className="dashboard-section" aria-label="Live Endpoints">
+          <div className="section-header">
+            <div className="section-title-wrapper">
+              <div className="section-icon-badge">
+                <Globe size={20} className="section-icon text-cyan" />
+              </div>
+              <div>
+                <h2 className="section-heading">Your Dedicated RAG Chatbot Endpoints</h2>
+                <p className="section-subtext">
+                  Share these URLs with developers or paste them into chatbot widgets.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
+            {/* Turnkey Endpoint (Key in URL) */}
+            <div style={{ background: '#0b0f19', border: '1px solid #374151', borderRadius: '8px', padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#34d399' }}>
+                  Direct URL Endpoint (Key in path — Turnkey & No-Code)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleCopyUrl(directEndpointUrl)}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: 'none',
+                    color: '#e5e7eb',
+                    padding: '4px 10px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  {copiedUrl ? <Check size={13} /> : <Copy size={13} />}
+                  {copiedUrl ? 'Copied' : 'Copy URL'}
+                </button>
+              </div>
+              <code style={{ color: '#60a5fa', fontFamily: 'monospace', fontSize: '13px', wordBreak: 'break-all' }}>
+                POST {directEndpointUrl}
+              </code>
+            </div>
+
+            {/* Standard Header Endpoint */}
+            <div style={{ background: '#0b0f19', border: '1px solid #374151', borderRadius: '8px', padding: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#93c5fd' }}>
+                  Standard REST Endpoint (Key via x-api-key header)
+                </span>
+              </div>
+              <code style={{ color: '#e5e7eb', fontFamily: 'monospace', fontSize: '13px', wordBreak: 'break-all' }}>
+                POST {headerEndpointUrl}
+              </code>
+            </div>
+          </div>
+        </section>
+
+        {/* Bottom Section: cURL Quick Start */}
         <section className="dashboard-section api-integration-card" aria-label="API Integration Guide">
           <div className="section-header">
             <div className="section-title-wrapper">
@@ -129,24 +266,26 @@ export function ApiKeys() {
                 <Terminal size={20} className="section-icon text-indigo" />
               </div>
               <div>
-                <h2 className="section-heading">Quick Start cURL Endpoint</h2>
+                <h2 className="section-heading">Quick Start cURL Test</h2>
                 <p className="section-subtext">
-                  Send questions to your vector store and receive synthesized answers
+                  Copy and run this command in your terminal to test your RAG chatbot right now
                 </p>
               </div>
             </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              icon={copiedCurl ? Check : Copy}
+              onClick={() => handleCopyCurl(curlSnippet)}
+            >
+              {copiedCurl ? 'Copied' : 'Copy cURL'}
+            </Button>
           </div>
 
           <div className="curl-code-block">
             <pre className="code-snippet">
-{`curl -X POST https://api.ragplatform.io/v1/query \\
-  -H "Authorization: Bearer ${apiKey}" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "query": "What is the attendance policy?",
-    "top_k": 3,
-    "temperature": 0.2
-  }'`}
+              {curlSnippet}
             </pre>
           </div>
         </section>
