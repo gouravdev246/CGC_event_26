@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KnowAPI & RAG-as-a-Service — API Documentation</title>
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-secondary: #111827;
+      --bg-card: #1f2937;
+      --bg-card-hover: #374151;
+      --border-color: #374151;
+      --text-primary: #f9fafb;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --accent-blue: #3b82f6;
+      --accent-blue-hover: #2563eb;
+      --accent-purple: #8b5cf6;
+      --accent-green: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --badge-post: #10b981;
+      --badge-get: #3b82f6;
+      --badge-put: #f59e0b;
+      --badge-delete: #ef4444;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: 280px;
+      background-color: var(--bg-secondary);
+      border-right: 1px solid var(--border-color);
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      overflow-y: auto;
+      padding: 24px 16px;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding: 0 8px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #fff;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .brand-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-version {
+      font-size: 11px;
+      background: rgba(59, 130, 246, 0.2);
+      color: var(--accent-blue);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+
+    .search-box {
+      margin-bottom: 20px;
+    }
+
+    .search-input {
+      width: 100%;
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-blue);
+    }
+
+    .nav-group {
+      margin-bottom: 24px;
+    }
+
+    .nav-header {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding: 0 8px;
+      margin-bottom: 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.15s ease;
+      margin-bottom: 2px;
+    }
+
+    .nav-item:hover, .nav-item.active {
+      background-color: rgba(255, 255, 255, 0.05);
+      color: var(--text-primary);
+    }
+
+    .nav-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      min-width: 42px;
+      text-align: center;
+    }
+
+    .badge-post { background: rgba(16, 185, 129, 0.15); color: var(--badge-post); }
+    .badge-get { background: rgba(59, 130, 246, 0.15); color: var(--badge-get); }
+
+    /* Main Content */
+    .main-wrapper {
+      margin-left: 280px;
+      flex: 1;
+      padding: 40px 60px;
+      max-width: 1100px;
+    }
+
+    .hero-section {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 32px;
+      margin-bottom: 40px;
+    }
+
+    .hero-title {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: 12px;
+      background: linear-gradient(to right, #60a5fa, #c084fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-desc {
+      font-size: 16px;
+      color: var(--text-secondary);
+      max-width: 780px;
+      line-height: 1.7;
+    }
+
+    .server-card {
+      margin-top: 24px;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .server-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    .server-url {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      color: var(--accent-blue);
+      font-weight: 600;
+    }
+
+    /* Architecture Flow Box */
+    .flow-box {
+      background: rgba(31, 41, 55, 0.4);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 24px;
+      margin: 32px 0 48px;
+    }
+
+    .flow-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .flow-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .step-card {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 16px;
+    }
+
+    .step-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .step-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .step-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* Endpoint Blocks */
+    .section-title {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 48px 0 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .endpoint-card {
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      margin-bottom: 32px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .endpoint-header {
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      background-color: rgba(31, 41, 55, 0.3);
+      cursor: pointer;
+    }
+
+    .endpoint-route {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .method-tag {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+    }
+
+    .tag-post { background-color: var(--badge-post); color: #042f2e; }
+    .tag-get { background-color: var(--badge-get); color: #082f49; }
+
+    .route-path {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .route-auth-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background-color: rgba(139, 92, 246, 0.2);
+      color: var(--accent-purple);
+      font-weight: 600;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+
+    .endpoint-body {
+      padding: 24px;
+    }
+
+    .endpoint-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 20px;
+    }
+
+    .param-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+
+    .param-table th, .param-table td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .param-table th {
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      background-color: rgba(0, 0, 0, 0.2);
+    }
+
+    .param-name {
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: #93c5fd;
+    }
+
+    .param-type {
+      font-family: var(--font-mono);
+      color: var(--accent-amber);
+      font-size: 12px;
+    }
+
+    .param-req {
+      color: var(--accent-red);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .param-opt {
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    /* Tabs for Code and Response */
+    .tabs-container {
+      margin-top: 16px;
+    }
+
+    .tab-nav {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 12px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      cursor: pointer;
+      border-radius: 6px 6px 0 0;
+      transition: all 0.2s;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .tab-btn.active {
+      color: var(--accent-blue);
+      border-bottom: 2px solid var(--accent-blue);
+    }
+
+    .code-wrapper {
+      position: relative;
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .code-block {
+      padding: 16px;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: #e5e7eb;
+      overflow-x: auto;
+      white-space: pre;
+      line-height: 1.5;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border-color);
+      color: var(--text-secondary);
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 11px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      background-color: var(--accent-blue);
+      color: #fff;
+      border-color: var(--accent-blue);
+    }
+
+    /* Status Pill */
+    .status-pill {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+    }
+
+    .status-200 { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .status-201 { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .status-400 { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .status-401 { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+    /* Footer */
+    footer {
+      margin-top: 80px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border-color);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .sidebar {
+        display: none;
+      }
+      .main-wrapper {
+        margin-left: 0;
+        padding: 24px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Left Sidebar Navigation -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-logo">K</div>
+      <div>
+        <div class="brand-title">KnowAPI <span class="brand-version">v1.0</span></div>
+      </div>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="endpointSearch" class="search-input" placeholder="Filter endpoints..." onkeyup="filterEndpoints()">
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-header">Getting Started</div>
+      <a href="#overview" class="nav-item">Overview & Architecture</a>
+      <a href="#authentication-guide" class="nav-item">Authentication Guide</a>
+      <a href="#quickstart" class="nav-item">College / Client Quickstart</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-header">Authentication API</div>
+      <a href="#auth-register" class="nav-item">
+        <span class="nav-badge badge-post">POST</span> /register
+      </a>
+      <a href="#auth-login" class="nav-item">
+        <span class="nav-badge badge-post">POST</span> /login
+      </a>
+      <a href="#auth-me" class="nav-item">
+        <span class="nav-badge badge-get">GET</span> /me
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-header">Knowledge Ingestion</div>
+      <a href="#file-upload" class="nav-item">
+        <span class="nav-badge badge-post">POST</span> /files/upload
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-header">API Key Management</div>
+      <a href="#keys-generate" class="nav-item">
+        <span class="nav-badge badge-post">POST</span> /keys/generate
+      </a>
+      <a href="#keys-current" class="nav-item">
+        <span class="nav-badge badge-get">GET</span> /keys/current
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-header">RAG Chatbot Service</div>
+      <a href="#rag-chat-key" class="nav-item">
+        <span class="nav-badge badge-post">POST</span> /:userid/:key/chat
+      </a>
+      <a href="#rag-chat-header" class="nav-item">
+        <span class="nav-badge badge-post">POST</span> /:userid/chat
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-header">System</div>
+      <a href="#health-check" class="nav-item">
+        <span class="nav-badge badge-get">GET</span> /health
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <main class="main-wrapper">
+
+    <!-- Hero / Introduction -->
+    <header class="hero-section" id="overview">
+      <h1 class="hero-title">RAG-as-a-Service Platform API</h1>
+      <p class="hero-desc">
+        Welcome to the KnowAPI developer documentation. Our platform provides a ready-made, multi-tenant Retrieval-Augmented Generation (RAG) backend. Organizations, colleges, and developers can upload their documents (PDFs, knowledge bases), receive an authenticated endpoint with an API key, and instantly power custom AI chatbots.
+      </p>
+
+      <div class="server-card">
+        <div>
+          <div class="server-label">Default Base URL</div>
+          <div class="server-url">http://localhost:5000/api</div>
+        </div>
+        <div>
+          <span style="font-size: 12px; color: var(--accent-green); font-weight: 600;">● Server Active</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Architecture Flow -->
+    <section class="flow-box">
+      <div class="flow-title">⚡ How the End-to-End RAG Flow Works</div>
+      <div class="flow-steps">
+        <div class="step-card">
+          <div class="step-num">1</div>
+          <div class="step-title">Upload Documents</div>
+          <div class="step-desc">Upload a PDF through <code>/api/files/upload</code>. The system parses and chunks the document into vector embeddings.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">2</div>
+          <div class="step-title">Vector Storage</div>
+          <div class="step-desc">Embeddings are indexed in Pinecone tagged with your <code>userId</code> as the metadata source for complete tenant isolation.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">3</div>
+          <div class="step-title">Instant API Endpoint</div>
+          <div class="step-desc">Receive an API Key and an endpoint: <code>/api/{userid}/{apikey}/chat</code>. Temporary upload files are cleaned up from disk.</div>
+        </div>
+        <div class="step-card">
+          <div class="step-num">4</div>
+          <div class="step-title">Chatbot Querying</div>
+          <div class="step-desc">Send questions from your frontend chatbot. Grounded answers are generated using semantic search and our LLM.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Authentication Guide -->
+    <section id="authentication-guide">
+      <h2 class="section-title">🔐 Authentication Guide</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 16px;">
+        The platform utilizes two distinct authentication mechanisms depending on the route type:
+      </p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px;">
+        <div class="step-card">
+          <h3 style="font-size: 15px; color: var(--accent-blue); margin-bottom: 8px;">1. User JWT Token (Admin / Dashboard)</h3>
+          <p style="font-size: 13px; color: var(--text-secondary);">
+            Used for authenticated user endpoints like document uploading (<code>/api/files/upload</code>) and generating API keys (<code>/api/keys/generate</code>).
+          </p>
+          <pre style="margin-top: 10px; font-family: var(--font-mono); font-size: 12px; color: #a5b4fc; background: #0b0f19; padding: 8px; border-radius: 6px;">Authorization: Bearer &lt;jwt_token&gt;</pre>
+        </div>
+        <div class="step-card">
+          <h3 style="font-size: 15px; color: var(--accent-purple); margin-bottom: 8px;">2. Public RAG API Key (Chatbots)</h3>
+          <p style="font-size: 13px; color: var(--text-secondary);">
+            Used by client chatbots, apps, and websites querying the RAG knowledge base. Can be passed directly in the URL path, via the <code>x-api-key</code> header, or Bearer token.
+          </p>
+          <pre style="margin-top: 10px; font-family: var(--font-mono); font-size: 12px; color: #a5b4fc; background: #0b0f19; padding: 8px; border-radius: 6px;">/api/:userid/:apikey/chat</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 1: AUTHENTICATION -->
+    <section id="auth-section">
+      <h2 class="section-title">1. Authentication Endpoints</h2>
+
+      <!-- Register -->
+      <div class="endpoint-card" id="auth-register">
+        <div class="endpoint-header">
+          <div class="endpoint-route">
+            <span class="method-tag tag-post">POST</span>
+            <span class="route-path">/api/auth/register</span>
+          </div>
+          <span class="route-auth-badge" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.3);">Public</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-desc">Register a new organization or user account. Returns user record and JWT authentication token.</p>
+          
+          <table class="param-table">
+            <thead>
+              <tr><th>Field</th><th>Type</th><th>Requirement</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="param-name">name</td><td class="param-type">string</td><td class="param-req">Required</td><td>User or institution name (min 2 chars).</td></tr>
+              <tr><td class="param-name">email</td><td class="param-type">string</td><td class="param-req">Required</td><td>Valid email address.</td></tr>
+              <tr><td class="param-name">password</td><td class="param-type">string</td><td class="param-req">Required</td><td>Min 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special character.</td></tr>
+            </tbody>
+          </table>
+
+          <div class="status-pill status-201">201 Created</div>
+          <div class="code-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <div class="code-block">{
+  "success": true,
+  "message": "User registered successfully.",
+  "user": {
+    "_id": "6723b9d19451996728e21ab1",
+    "name": "Chandigarh Group of Colleges",
+    "email": "cgc@example.com",
+    "createdAt": "2026-10-31T12:00:00.000Z"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Login -->
+      <div class="endpoint-card" id="auth-login">
+        <div class="endpoint-header">
+          <div class="endpoint-route">
+            <span class="method-tag tag-post">POST</span>
+            <span class="route-path">/api/auth/login</span>
+          </div>
+          <span class="route-auth-badge" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.3);">Public</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-desc">Authenticate an existing user and obtain a JWT bearer token.</p>
+
+          <table class="param-table">
+            <thead>
+              <tr><th>Field</th><th>Type</th><th>Requirement</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="param-name">email</td><td class="param-type">string</td><td class="param-req">Required</td><td>Registered email address.</td></tr>
+              <tr><td class="param-name">password</td><td class="param-type">string</td><td class="param-req">Required</td><td>User account password.</td></tr>
+            </tbody>
+          </table>
+
+          <div class="status-pill status-200">200 OK</div>
+          <div class="code-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <div class="code-block">{
+  "success": true,
+  "message": "Login successful.",
+  "user": {
+    "id": "6723b9d19451996728e21ab1",
+    "email": "cgc@example.com"
+  },
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Get Current User -->
+      <div class="endpoint-card" id="auth-me">
+        <div class="endpoint-header">
+          <div class="endpoint-route">
+            <span class="method-tag tag-get">GET</span>
+            <span class="route-path">/api/auth/me</span>
+          </div>
+          <span class="route-auth-badge">Bearer Token</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-desc">Fetch the profile of the currently authenticated user.</p>
+          <div class="status-pill status-200">200 OK</div>
+          <div class="code-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <div class="code-block">{
+  "success": true,
+  "user": {
+    "_id": "6723b9d19451996728e21ab1",
+    "name": "Chandigarh Group of Colleges",
+    "email": "cgc@example.com"
+  }
+}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: FILE UPLOAD & INGESTION -->
+    <section id="ingestion-section">
+      <h2 class="section-title">2. Knowledge Ingestion (File Upload)</h2>
+
+      <div class="endpoint-card" id="file-upload">
+        <div class="endpoint-header">
+          <div class="endpoint-route">
+            <span class="method-tag tag-post">POST</span>
+            <span class="route-path">/api/files/upload</span>
+          </div>
+          <span class="route-auth-badge">Bearer Token / Optional</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-desc">
+            Upload a PDF document. The server automatically:
+            <br>1. Loads and splits the document into text chunks.
+            <br>2. Generates Cohere vector embeddings and indexes them in Pinecone tagged with your <code>userId</code>.
+            <br>3. Deletes the physical file from the server's <code>uploads/</code> folder.
+            <br>4. Returns your persistent API key and ready-to-use Chatbot API endpoints.
+          </p>
+
+          <table class="param-table">
+            <thead>
+              <tr><th>Parameter</th><th>Type</th><th>Location</th><th>Requirement</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="param-name">file</td><td class="param-type">File (binary)</td><td>FormData</td><td class="param-req">Required</td><td>The PDF document to ingest into your RAG knowledge base.</td></tr>
+              <tr><td class="param-name">userId</td><td class="param-type">string</td><td>Body / Token</td><td class="param-opt">Optional</td><td>If not using Bearer JWT, supply custom user ID in form body.</td></tr>
+            </tbody>
+          </table>
+
+          <div class="status-pill status-200">200 OK — Embeddings Generated & Endpoints Ready</div>
+          <div class="code-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <div class="code-block">{
+  "success": true,
+  "message": "Documents Added Successfully",
+  "apiKey": "cgc_98e1f570cb1ad73e904b791dc082647c2105193e433f1b5d",
+  "apiEndpoint": "http://localhost:5000/api/6723b9d19451996728e21ab1/cgc_98e1f570cb1ad73e904b791dc082647c2105193e433f1b5d/chat",
+  "chatEndpoint": "http://localhost:5000/api/6723b9d19451996728e21ab1/chat",
+  "file": {
+    "_id": "6723bd48451996728e21ab99",
+    "userId": "6723b9d19451996728e21ab1",
+    "originalName": "College_Admissions_Handbook_2026.pdf",
+    "filename": "6723b9d19451996728e21ab1_College_Admissions_Handbook_2026.pdf",
+    "size": 345120,
+    "mimeType": "application/pdf"
+  },
+  "processedFiles": [
+    "6723b9d19451996728e21ab1_College_Admissions_Handbook_2026.pdf"
+  ]
+}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: API KEY GENERATION -->
+    <section id="apikey-section">
+      <h2 class="section-title">3. API Key Management</h2>
+
+      <!-- Generate Key -->
+      <div class="endpoint-card" id="keys-generate">
+        <div class="endpoint-header">
+          <div class="endpoint-route">
+            <span class="method-tag tag-post">POST</span>
+            <span class="route-path">/api/keys/generate</span>
+          </div>
+          <span class="route-auth-badge">Bearer Token</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-desc">Generate or rotate an API key for the logged-in user.</p>
+
+          <div class="status-pill status-201">201 Created</div>
+          <div class="code-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <div class="code-block">{
+  "success": true,
+  "message": "API key generated successfully",
+  "apiKey": "cgc_98e1f570cb1ad73e904b791dc082647c2105193e433f1b5d",
+  "endpoints": {
+    "chatUrlWithKey": "http://localhost:5000/api/6723b9d19451996728e21ab1/cgc_98e1f570cb1ad73e904b791dc082647c2105193e433f1b5d/chat",
+    "chatUrl": "http://localhost:5000/api/6723b9d19451996728e21ab1/chat"
+  }
+}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Get Key -->
+      <div class="endpoint-card" id="keys-current">
+        <div class="endpoint-header">
+          <div class="endpoint-route">
+            <span class="method-tag tag-get">GET</span>
+            <span class="route-path">/api/keys/current</span>
+          </div>
+          <span class="route-auth-badge">Bearer Token</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-desc">Retrieve the current active API key and chat endpoint URLs for the authenticated user.</p>
+
+          <div class="status-pill status-200">200 OK</div>
+          <div class="code-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <div class="code-block">{
+  "success": true,
+  "apiKey": "cgc_98e1f570cb1ad73e904b791dc082647c2105193e433f1b5d",
+  "endpoints": {
+    "chatUrlWithKey": "http://localhost:5000/api/6723b9d19451996728e21ab1/cgc_98e1f570cb1ad73e904b791dc082647c2105193e433f1b5d/chat",
+    "chatUrl": "http://localhost:5000/api/6723b9d19451996728e21ab1/chat"
+  }
+}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: PUBLIC RAG CHATBOT ENDPOINTS -->
+    <section id="rag-section">
+      <h2 class="section-title">4. Public RAG Chatbot Service Endpoints</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 20px;">
+        These endpoints are designed for third-party websites, apps, and chatbot UIs. They authenticate via your generated API Key and execute vector similarity search filtered strictly to your organization's documents.
+      </p>
+
+      <!-- URL with Key -->
+      <div class="endpoint-card" id="rag-chat-key">
+        <div class="endpoint-header">
+          <div class="endpoint-route">
+            <span class="method-tag tag-post">POST</span>
+            <span class="route-path">/api/:userid/:apikey/chat</span>
+          </div>
+          <span class="route-auth-badge" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.3);">API Key in Path</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-desc">
+            Direct turnkey endpoint. Send queries directly with your user ID and API key in the URL path. Perfect for no-code tools, simple widget embeds, and quick integrations.
+          </p>
+
+          <table class="param-table">
+            <thead>
+              <tr><th>Parameter</th><th>Type</th><th>Location</th><th>Requirement</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="param-name">:userid</td><td class="param-type">string</td><td>Path</td><td class="param-req">Required</td><td>The organization/user ID that owns the uploaded knowledge base.</td></tr>
+              <tr><td class="param-name">:apikey</td><td class="param-type">string</td><td>Path</td><td class="param-req">Required</td><td>The valid API key matching this user account.</td></tr>
+              <tr><td class="param-name">message</td><td class="param-type">string</td><td>Body (JSON)</td><td class="param-req">Required</td><td>The user query / question to answer. Also accepts <code>query</code>.</td></tr>
+              <tr><td class="param-name">history</td><td class="param-type">array</td><td>Body (JSON)</td><td class="param-opt">Optional</td><td>Conversation history: <code>[{"role":"user","content":"..."},{"role":"assistant","content":"..."}]</code></td></tr>
+              <tr><td class="param-name">k</td><td class="param-type">number</td><td>Body (JSON)</td><td class="param-opt">Optional</td><td>Number of context chunks to retrieve (default: 4, max: 10).</td></tr>
+            </tbody>
+          </table>
+
+          <div class="status-pill status-200">200 OK — Grounded Answer with Citations</div>
+          <div class="code-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <div class="code-block">{
+  "success": true,
+  "query": "What are the eligibility criteria for B.Tech in Computer Science?",
+  "answer": "According to the admissions handbook, eligibility for B.Tech in Computer Science requires a minimum of 60% aggregate marks in 10+2 with Physics and Mathematics as compulsory subjects, along with a valid JEE or State Entrance Score.",
+  "response": "According to the admissions handbook, eligibility for B.Tech in Computer Science requires a minimum of 60% aggregate marks in 10+2 with Physics and Mathematics as compulsory subjects, along with a valid JEE or State Entrance Score.",
+  "sources": [
+    {
+      "content": "Eligibility Criteria for Under-Graduate Engineering: Minimum 60% in Physics, Mathematics...",
+      "metadata": {
+        "source": "6723b9d19451996728e21ab1",
+        "page": 4
+      }
+    }
+  ]
+}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- URL with Header -->
+      <div class="endpoint-card" id="rag-chat-header">
+        <div class="endpoint-header">
+          <div class="endpoint-route">
+            <span class="method-tag tag-post">POST</span>
+            <span class="route-path">/api/:userid/chat</span>
+          </div>
+          <span class="route-auth-badge">API Key via Header / Body</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-desc">
+            Standard REST endpoint. Pass your API key securely via the <code>x-api-key</code> header or <code>Authorization: Bearer &lt;apikey&gt;</code>.
+          </p>
+
+          <table class="param-table">
+            <thead>
+              <tr><th>Header / Field</th><th>Type</th><th>Location</th><th>Requirement</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="param-name">x-api-key</td><td class="param-type">string</td><td>Header</td><td class="param-req">Required*</td><td>Your secret API key (alternatively pass in Authorization or body).</td></tr>
+              <tr><td class="param-name">:userid</td><td class="param-type">string</td><td>Path</td><td class="param-req">Required</td><td>The account ID owning the knowledge base.</td></tr>
+              <tr><td class="param-name">message</td><td class="param-type">string</td><td>Body (JSON)</td><td class="param-req">Required</td><td>The prompt or user question.</td></tr>
+            </tbody>
+          </table>
+
+          <div class="status-pill status-200">200 OK</div>
+          <div class="code-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <div class="code-block">{
+  "success": true,
+  "query": "Are hostel accommodations available on campus?",
+  "answer": "Yes, on-campus air-conditioned and non-air-conditioned hostels are available with 24/7 security and Wi-Fi facilities.",
+  "sources": [
+    {
+      "content": "Hostel Facilities: Campus provides separate hostels for boys and girls...",
+      "metadata": { "source": "6723b9d19451996728e21ab1", "page": 12 }
+    }
+  ]
+}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: HEALTH CHECK -->
+    <section id="health-section">
+      <h2 class="section-title">5. Health Check</h2>
+      <div class="endpoint-card" id="health-check">
+        <div class="endpoint-header">
+          <div class="endpoint-route">
+            <span class="method-tag tag-get">GET</span>
+            <span class="route-path">/api/health</span>
+          </div>
+          <span class="route-auth-badge" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-green); border-color: rgba(16, 185, 129, 0.3);">Public</span>
+        </div>
+        <div class="endpoint-body">
+          <p class="endpoint-desc">Returns the operational status of the server and API gateway.</p>
+          <div class="status-pill status-200">200 OK</div>
+          <div class="code-wrapper">
+            <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+            <div class="code-block">{
+  "success": true,
+  "message": "KnowAPI server is running"
+}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 6: CLIENT QUICKSTART GUIDE -->
+    <section id="quickstart" style="margin-top: 60px;">
+      <h2 class="section-title">🚀 Client Quickstart Code Examples</h2>
+      <p style="color: var(--text-secondary); margin-bottom: 20px;">
+        Copy and paste these snippets to integrate your RAG chatbot into any frontend website, React component, or Python backend.
+      </p>
+
+      <div class="endpoint-card">
+        <div class="endpoint-body">
+          <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab(this, 'snippet-curl')">cURL</button>
+            <button class="tab-btn" onclick="switchTab(this, 'snippet-js')">JavaScript (Fetch)</button>
+            <button class="tab-btn" onclick="switchTab(this, 'snippet-py')">Python</button>
+          </div>
+
+          <div id="snippet-curl" class="tab-pane">
+            <div class="code-wrapper">
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              <div class="code-block">curl -X POST "http://localhost:5000/api/YOUR_USER_ID/YOUR_API_KEY/chat" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "What is the fee structure for BCA?",
+    "k": 4
+  }'</div>
+            </div>
+          </div>
+
+          <div id="snippet-js" class="tab-pane" style="display: none;">
+            <div class="code-wrapper">
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              <div class="code-block">async function askKnowledgeBot(question) {
+  const userId = "YOUR_USER_ID";
+  const apiKey = "YOUR_API_KEY";
+
+  const response = await fetch(`http://localhost:5000/api/${userId}/${apiKey}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message: question })
+  });
+
+  const data = await response.json();
+  console.log("Bot Answer:", data.answer);
+  return data;
+}
+
+// Example usage
+askKnowledgeBot("What scholarships are offered?");</div>
+            </div>
+          </div>
+
+          <div id="snippet-py" class="tab-pane" style="display: none;">
+            <div class="code-wrapper">
+              <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+              <div class="code-block">import requests
+
+USER_ID = "YOUR_USER_ID"
+API_KEY = "YOUR_API_KEY"
+URL = f"http://localhost:5000/api/{USER_ID}/{API_KEY}/chat"
+
+payload = {
+    "message": "When is the deadline for autumn enrollment?"
+}
+
+response = requests.post(URL, json=payload)
+data = response.json()
+
+print("Status:", data.get("success"))
+print("Answer:", data.get("answer"))</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+      <p>KnowAPI RAG-as-a-Service Platform &copy; 2026. Built with Node.js, Express, LangChain, Pinecone & Cohere.</p>
+    </footer>
+
+  </main>
+
+  <script>
+    // Copy code snippet to clipboard
+    function copyCode(button) {
+      const wrapper = button.closest('.code-wrapper');
+      const codeBlock = wrapper.querySelector('.code-block');
+      const text = codeBlock.innerText;
+
+      navigator.clipboard.writeText(text).then(() => {
+        const originalText = button.innerText;
+        button.innerText = 'Copied!';
+        button.style.backgroundColor = '#10b981';
+        button.style.color = '#fff';
+        setTimeout(() => {
+          button.innerText = originalText;
+          button.style.backgroundColor = '';
+          button.style.color = '';
+        }, 2000);
+      });
+    }
+
+    // Switch between snippet tabs (cURL / JS / Python)
+    function switchTab(btn, tabId) {
+      const container = btn.closest('.endpoint-body');
+      container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      container.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+
+      btn.classList.add('active');
+      const targetPane = document.getElementById(tabId);
+      if (targetPane) {
+        targetPane.style.display = 'block';
+      }
+    }
+
+    // Filter endpoints in the sidebar
+    function filterEndpoints() {
+      const input = document.getElementById('endpointSearch');
+      const filter = input.value.toLowerCase();
+      const navItems = document.querySelectorAll('.sidebar .nav-item');
+
+      navItems.forEach(item => {
+        const text = item.textContent || item.innerText;
+        if (text.toLowerCase().indexOf(filter) > -1) {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
+

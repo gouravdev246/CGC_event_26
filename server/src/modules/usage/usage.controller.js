@@ -1,122 +1,132 @@
-import { findUserByIdOrEmail, countUserDocuments } from "../subscription/subscription.controller.js";
+import * as usageService from "./usage.service.js";
+
+// Helper to extract userId from JWT user, query param, or header
+const resolveUserId = (req) => {
+  return (
+    req.user?.id ||
+    req.user?._id ||
+    req.query?.userId ||
+    req.headers["x-user-id"] ||
+    null
+  );
+};
 
 export const getOverview = async (req, res) => {
   try {
-    const userId = req.user?.id || req.user?._id;
-    const userEmail = req.user?.email;
-    const user = await findUserByIdOrEmail(userId, userEmail);
+    const userId = resolveUserId(req);
+    const timeframe = req.query?.timeframe || "24h";
 
-    const requestsUsed = user?.subscription?.requestsUsed || 0;
-    const requestLimit = user?.subscription?.requestLimit || 100;
-    const docCount = await countUserDocuments(userId);
-
-    const totalInputTokens = requestsUsed * 180;
-    const totalOutputTokens = requestsUsed * 320;
-
-    return res.json({
-      success: true,
-      apiConsumption: {
-        totalRequests: requestsUsed,
-        successfulRequests: requestsUsed,
-        failedRequests: 0,
-        requestsPerMinute: requestsUsed > 0 ? (requestsUsed / 60).toFixed(2) : 0,
-        requestsPerDay: requestsUsed,
-        requestsPerMonth: requestsUsed,
-        requestLimit
-      },
-      tokenConsumption: {
-        totalInputTokens,
-        totalOutputTokens,
-        totalTokens: totalInputTokens + totalOutputTokens,
-        avgTokensPerRequest: requestsUsed > 0 ? 500 : 0
-      },
-      llmPerformance: {
-        avgResponseTime: requestsUsed > 0 ? 0.38 : 0,
-        p50Latency: 0.32,
-        p95Latency: 0.54,
-        p99Latency: 0.72,
-        modelConsumption: [
-          { model: "gemini-1.5-pro", requests: requestsUsed, tokens: totalInputTokens + totalOutputTokens }
-        ]
-      },
-      ragPerformance: {
-        totalRetrievals: requestsUsed,
-        avgChunksPerQuery: 3,
-        avgRetrievalLatency: 45,
-        relevantMatches: requestsUsed,
-        noMatchQueries: 0,
-        totalDocuments: docCount
-      }
+    const overview = await usageService.getDashboardOverview(userId, timeframe);
+    return res.status(200).json(overview);
+  } catch (error) {
+    console.error("Failed to get dashboard overview:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch usage overview",
+      error: error.message,
     });
-  } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
-export const getRequestsTimeSeries = (req, res) => {
-  const hours = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"];
-  const data = hours.map((time, idx) => ({
-    time,
-    requests: idx === 3 ? 4 : idx === 4 ? 6 : 2,
-    success: idx === 3 ? 4 : idx === 4 ? 6 : 2,
-    failed: 0,
-    avgLatency: 0.35
-  }));
-  return res.json(data);
+export const getRequestsTimeSeries = async (req, res) => {
+  try {
+    const userId = resolveUserId(req);
+    const timeframe = req.query?.timeframe || "24h";
+
+    const data = await usageService.getRequestsTimeSeries(userId, timeframe);
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error("Failed to get requests time series:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch requests time series",
+      error: error.message,
+    });
+  }
 };
 
-export const getTokensTimeSeries = (req, res) => {
-  const hours = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"];
-  const data = hours.map((time, idx) => ({
-    time,
-    inputTokens: (idx + 1) * 240,
-    outputTokens: (idx + 1) * 420,
-    totalTokens: (idx + 1) * 660
-  }));
-  return res.json(data);
+export const getTokensTimeSeries = async (req, res) => {
+  try {
+    const userId = resolveUserId(req);
+    const timeframe = req.query?.timeframe || "24h";
+
+    const data = await usageService.getRequestsTimeSeries(userId, timeframe);
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error("Failed to get tokens time series:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch tokens time series",
+      error: error.message,
+    });
+  }
 };
 
-export const getLatencyTimeSeries = (req, res) => {
-  const hours = ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"];
-  const data = hours.map((time) => ({
-    time,
-    avgLatency: 0.38,
-    p95Latency: 0.52
-  }));
-  return res.json(data);
+export const getLatencyTimeSeries = async (req, res) => {
+  try {
+    const userId = resolveUserId(req);
+    const timeframe = req.query?.timeframe || "24h";
+
+    const data = await usageService.getRequestsTimeSeries(userId, timeframe);
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error("Failed to get latency time series:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch latency time series",
+      error: error.message,
+    });
+  }
 };
 
-export const getModelWiseUsage = (req, res) => {
-  return res.json([
-    { model: "gemini-1.5-pro", percentage: 70, requests: 14, tokens: 9400 },
-    { model: "text-embedding-004", percentage: 30, requests: 6, tokens: 2800 }
-  ]);
+export const getModelUsage = async (req, res) => {
+  try {
+    const userId = resolveUserId(req);
+    const overview = await usageService.getDashboardOverview(userId);
+    return res.status(200).json(overview.llmPerformance?.modelConsumption || []);
+  } catch (error) {
+    console.error("Failed to get model usage:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch model usage",
+      error: error.message,
+    });
+  }
 };
 
-export const getRagPerformance = (req, res) => {
-  return res.json({
-    totalRetrievals: 12,
-    avgChunksPerQuery: 3,
-    avgRetrievalLatency: 42,
-    relevantMatches: 12,
-    noMatchQueries: 0
-  });
+export const getRagPerformance = async (req, res) => {
+  try {
+    const userId = resolveUserId(req);
+    const overview = await usageService.getDashboardOverview(userId);
+    return res.status(200).json(overview.ragPerformance || null);
+  } catch (error) {
+    console.error("Failed to get RAG performance:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch RAG performance",
+      error: error.message,
+    });
+  }
 };
 
-export const getRequestHistory = (req, res) => {
-  return res.json([
-    {
-      id: "REQ-9012",
-      query: "What is the university attendance requirement?",
-      answer: "A minimum of 75% attendance is required to be eligible for end-semester examinations.",
-      responseTime: 0.36,
-      status: "success",
-      statusCode: 200,
-      timestamp: new Date().toISOString(),
-      model: "gemini-1.5-pro",
-      inputTokens: 38,
-      outputTokens: 72,
-      knowledgeBase: "Policy Docs"
-    }
-  ]);
+export const getRequestHistory = async (req, res) => {
+  try {
+    const userId = resolveUserId(req);
+    const { limit = 50, status = "all", search = "" } = req.query;
+
+    const data = await usageService.getRequestHistory(userId, {
+      limit: Number(limit) || 50,
+      status,
+      search,
+    });
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error("Failed to get request history:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch request history",
+      error: error.message,
+    });
+  }
 };
+

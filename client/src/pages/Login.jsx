@@ -39,6 +39,10 @@ export function Login() {
         localStorage.setItem('rag_auth_token', res.data.token);
         localStorage.setItem('rag_user_email', res.data.user?.email || email);
         if (res.data.user?.name) localStorage.setItem('rag_user_name', res.data.user.name);
+        
+        const userId = res.data.user?._id || res.data.user?.id;
+        if (userId) localStorage.setItem('rag_user_id', userId);
+
         setTimeout(() => navigate('/dashboard'), 300);
         return;
       }

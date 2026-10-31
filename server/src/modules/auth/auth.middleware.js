@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 
+const JWT_SECRET = process.env.JWT_SECRET || "super_secret_jwt_key_rag_service_2026_dev";
+
 // Middleware to validate request body with Zod
 export const validate = (schema) => (req, res, next) => {
   const result = schema.safeParse(req.body);
@@ -35,7 +37,7 @@ export const verifyToken = (req, res, next) => {
   const token = authHeader.split(" ")[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (err) {
@@ -45,4 +47,3 @@ export const verifyToken = (req, res, next) => {
     });
   }
 };
-

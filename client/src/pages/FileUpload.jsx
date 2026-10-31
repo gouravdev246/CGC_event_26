@@ -13,8 +13,12 @@ import {
   AlertCircle,
   FileCode,
   X,
-  ArrowUpRight
+  Copy,
+  Check,
+  ArrowRight,
+  LogIn
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Badge from '../components/common/Badge';
 import Button from '../components/common/Button';
 import { apiService } from '../services/api';
@@ -49,7 +53,10 @@ export function FileUpload() {
   const [isDragging, setIsDragging] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState([]);
   const [selectedDoc, setSelectedDoc] = useState(null);
-  const [uploadError, setUploadError] = useState(null);
+  const [lastUploadResult, setLastUploadResult] = useState(null);
+  const [uploadError, setUploadError] = useState('');
+  const [isAuthError, setIsAuthError] = useState(false);
+  const [copiedEndpoint, setCopiedEndpoint] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleDragOver = (e) => {
@@ -78,53 +85,80 @@ export function FileUpload() {
   };
 
   const processFiles = async (newFiles) => {
-    setUploadError(null);
+    setUploadError('');
+    setIsAuthError(false);
+
     for (const file of newFiles) {
       const task = {
         name: file.name.replace(/\.[^/.]+$/, ''),
         filename: file.name,
-        size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
+        size: (file.size / (1024 * 1024)).toFixed(2) + ' MB',
         type: file.name.split('.').pop().toUpperCase(),
-        progress: 40
+        progress: 15
       };
 
       setUploadingFiles((prev) => [...prev, task]);
 
       try {
-        const res = await apiService.uploadFile(file);
-        setUploadingFiles((prev) => prev.filter((t) => t.filename !== file.name));
-
-        const newDoc = {
-          id: res.file?._id || res.file?.id || `doc-${Date.now()}`,
-          name: task.name,
-          filename: file.name,
-          type: task.type,
-          size: task.size,
-          chunks: Math.floor(Math.random() * 30) + 12,
-          status: 'Indexed',
-          uploadedAt: 'Just now',
-          contentPreview: `Extracted content and vector embeddings for ${file.name}. Ready for semantic RAG retrieval.`
-        };
-
-        setDocuments((prev) => [newDoc, ...prev]);
-      } catch (err) {
-        setUploadingFiles((prev) => prev.filter((t) => t.filename !== file.name));
-        const errData = err.response?.data;
-        if (err.response?.status === 403 || errData?.code === 'DOCUMENT_LIMIT_REACHED') {
-          setUploadError({
-            message: errData?.message || 'Document upload limit reached for your plan.',
-            plan: errData?.plan || 'Free',
-            limit: errData?.limit || 2,
-            currentUsage: errData?.currentUsage || 2
-          });
-          break;
-        } else {
-          setUploadError({
-            message: errData?.message || 'Failed to upload document. Please try again.'
-          });
+        const formData = new FormData();
+        formData.append('file', file);
+        const storedUserId = localStorage.getItem('rag_user_id');
+        if (storedUserId) {
+          formData.append('userId', storedUserId);
         }
+
+        const res = await apiService.uploadFile(formData, (percent) => {
+          setUploadingFiles((prev) =>
+            prev.map((t) => (t.filename === file.name ? { ...t, progress: Math.min(percent, 85) } : t))
+          );
+        });
+
+        if (res && res.success) {
+          if (res.apiKey) localStorage.setItem('rag_api_key', res.apiKey);
+          if (res.apiEndpoint) localStorage.setItem('rag_api_endpoint', res.apiEndpoint);
+          if (res.chatEndpoint) localStorage.setItem('rag_chat_endpoint', res.chatEndpoint);
+          if (res.file?.userId) localStorage.setItem('rag_user_id', res.file.userId);
+
+          setLastUploadResult(res);
+
+          const newDoc = {
+            id: res.file?._id || `doc-${Date.now()}`,
+            name: task.name,
+            filename: file.name,
+            type: task.type,
+            size: task.size,
+            chunks: res.processedFiles?.length ? 24 : 15,
+            status: 'Indexed',
+            uploadedAt: 'Just now',
+            contentPreview: `Vector embeddings generated and stored in Pinecone for ${file.name}. Ready for semantic RAG retrieval.`
+          };
+
+          setDocuments((prev) => [newDoc, ...prev]);
+        } else {
+          setUploadError(res?.message || 'Failed to process document');
+        }
+      } catch (err) {
+        console.error('File upload error:', err);
+        const status = err.response?.status;
+        const msg = err.response?.data?.message || err.message || 'File upload failed. Ensure server is active.';
+        
+        if (status === 401) {
+          setUploadError('Your login session is invalid or expired (401). Please re-login to renew your credentials.');
+          setIsAuthError(true);
+        } else {
+          setUploadError(msg);
+          setIsAuthError(false);
+        }
+      } finally {
+        setUploadingFiles((prev) => prev.filter((t) => t.filename !== file.name));
       }
     }
+  };
+
+  const handleCopyEndpoint = (text) => {
+    navigator.clipboard.writeText(text);
+    setCopiedEndpoint(true);
+    setTimeout(() => setCopiedEndpoint(false), 2000);
   };
 
   const handleDelete = (id, e) => {
@@ -154,32 +188,136 @@ export function FileUpload() {
         </div>
       </header>
 
-      {/* Main Two Section Stack Matching Sketch */}
+      {/* Main Two Section Stack */}
       <div className="dashboard-vertical-sections">
-        {uploadError && (
-          <div className="subscription-banner banner-error" style={{ marginBottom: '16px' }}>
-            <AlertCircle size={20} />
-            <div style={{ flex: 1 }}>
-              <strong>{uploadError.message}</strong>
-              {uploadError.limit && (
-                <span style={{ display: 'block', fontSize: '12px', marginTop: '2px' }}>
-                  Current Plan ({uploadError.plan}) usage: {uploadError.currentUsage} / {uploadError.limit} documents
-                </span>
-              )}
+
+        {/* Success Banner when Embeddings are Generated */}
+        {lastUploadResult && (
+          <div
+            style={{
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(59, 130, 246, 0.15))',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              borderRadius: '12px',
+              padding: '20px 24px',
+              marginBottom: '8px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <CheckCircle2 size={18} color="#10b981" />
+                  <span style={{ fontWeight: 700, color: '#f9fafb', fontSize: '15px' }}>
+                    {lastUploadResult.message || 'Documents Added Successfully!'}
+                  </span>
+                  <Badge variant="success" size="sm" dot>Embeddings Ready</Badge>
+                </div>
+                <p style={{ fontSize: '13px', color: '#9ca3af' }}>
+                  Your knowledge base is vector-indexed in Pinecone. You can now build chatbots using this endpoint:
+                </p>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    marginTop: '8px',
+                    background: '#0b0f19',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontFamily: 'monospace',
+                    fontSize: '13px',
+                    color: '#60a5fa',
+                    border: '1px solid #374151'
+                  }}
+                >
+                  <span style={{ wordBreak: 'break-all' }}>
+                    {lastUploadResult.apiEndpoint || `${window.location.origin}/api/${lastUploadResult.file?.userId}/${lastUploadResult.apiKey}/chat`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyEndpoint(lastUploadResult.apiEndpoint)}
+                    style={{
+                      background: 'rgba(255,255,255,0.1)',
+                      border: 'none',
+                      color: '#fff',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      fontSize: '11px',
+                      fontWeight: 600
+                    }}
+                  >
+                    {copiedEndpoint ? <Check size={12} /> : <Copy size={12} />}
+                    {copiedEndpoint ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              <Button
+                variant="primary"
+                size="sm"
+                icon={ArrowRight}
+                onClick={() => navigate('/user-query')}
+              >
+                Test in Query Chat
+              </Button>
             </div>
-            <Button
-              size="sm"
-              variant="primary"
-              icon={ArrowUpRight}
-              onClick={() => navigate('/subscription')}
-            >
-              Upgrade Plan
-            </Button>
+          </div>
+        )}
+
+        {/* Error Banner */}
+        {uploadError && (
+          <div
+            style={{
+              background: 'rgba(239, 68, 68, 0.15)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              color: '#f87171',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              flexWrap: 'wrap'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertCircle size={16} />
+              <span>{uploadError}</span>
+            </div>
+            {isAuthError && (
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.removeItem('rag_auth_token');
+                  navigate('/login');
+                }}
+                style={{
+                  background: '#ef4444',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <LogIn size={13} />
+                <span>Log In Again</span>
+              </button>
+            )}
           </div>
         )}
 
         {/* =================================================================
-            1. TOP SECTION: Upload Files (Large rounded box with prominent +)
+            1. TOP SECTION: Upload Files
            ================================================================= */}
         <section
           className={`dashboard-section upload-box-container ${isDragging ? 'drag-active' : ''}`}
@@ -191,7 +329,7 @@ export function FileUpload() {
           <div className="upload-box-content">
             <h2 className="upload-box-title">Upload Your Knowledge.</h2>
 
-            {/* Prominent Plus Button Matching Sketch */}
+            {/* Prominent Plus Button */}
             <button
               type="button"
               className="upload-plus-btn"
@@ -206,7 +344,7 @@ export function FileUpload() {
               Drop files or browse.
             </p>
             <span className="upload-box-formats">
-              Supported formats: PDF, DOCX, TXT, CSV, MD (up to 50MB)
+              Supported formats: PDF (up to 50MB)
             </span>
 
             {/* Hidden Input for File Selection */}
@@ -215,7 +353,7 @@ export function FileUpload() {
               ref={fileInputRef}
               onChange={handleFileInputChange}
               multiple
-              accept=".pdf,.docx,.doc,.txt,.csv,.md"
+              accept=".pdf"
               style={{ display: 'none' }}
             />
 
@@ -235,7 +373,7 @@ export function FileUpload() {
                       />
                     </div>
                     <span className="progress-status-text">
-                      Parsing document and generating vector embeddings...
+                      Parsing document, generating vector embeddings & indexing in Pinecone...
                     </span>
                   </div>
                 ))}
@@ -245,7 +383,7 @@ export function FileUpload() {
         </section>
 
         {/* =================================================================
-            2. BOTTOM SECTION: Uploaded Documents List (1. Policy Docs, 2. Fee docs)
+            2. BOTTOM SECTION: Uploaded Documents List
            ================================================================= */}
         <section className="dashboard-section uploaded-docs-container" aria-label="Uploaded Documents">
           <div className="section-header">
@@ -282,7 +420,6 @@ export function FileUpload() {
                   role="button"
                   tabIndex={0}
                 >
-                  {/* Number prefix matching sketch: 1. Policy Docs, 2. Fee docs */}
                   <div className="doc-number-col">
                     <span className="doc-number">{idx + 1}.</span>
                   </div>
@@ -402,7 +539,7 @@ export function FileUpload() {
 
             <div className="modal-footer">
               <span className="timestamp-note">
-                Indexed in HNSW vector index with cosine similarity metric
+                Indexed in Pinecone vector index with Cohere embeddings
               </span>
               <Button variant="outline" size="sm" onClick={() => setSelectedDoc(null)}>
                 Close

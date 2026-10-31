@@ -27,12 +27,18 @@ app.post(
 
 app.use(express.json());
 
+// Interactive API Documentation endpoint
+const docsFilePath = path.resolve(import.meta.dirname, "../public/api-docs.html");
+app.get(["/docs", "/api-docs"], (req, res) => {
+  res.sendFile(docsFilePath);
+});
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/files", fileRoutes);
-app.use("/api/rag", ragRoutes);
-app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/keys", apiRoutes);
 app.use("/api/usage", usageRoutes);
+app.use("/api", ragRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {

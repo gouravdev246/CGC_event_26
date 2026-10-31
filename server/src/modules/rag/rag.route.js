@@ -1,11 +1,13 @@
 import { Router } from "express";
-import { handleQuery } from "./rag.controller.js";
-import { verifyToken } from "../auth/auth.middleware.js";
-import { enforceRequestLimit } from "../subscription/usage.middleware.js";
+import { handleChatQuery } from "./rag.controller.js";
 
 const router = Router();
 
-// POST /api/rag/query - Enforces subscription request limits (Free: 100, Starter: 1,000, Pro: 2,500)
-router.post("/query", verifyToken, enforceRequestLimit, handleQuery);
+// Endpoint with API key in URL: /api/:userid/:apikey/chat
+router.post("/:userid/:apikey/chat", handleChatQuery);
+
+// Endpoint with API key in headers or body: /api/:userid/chat
+router.post("/:userid/chat", handleChatQuery);
 
 export default router;
+
